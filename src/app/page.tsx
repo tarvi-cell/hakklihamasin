@@ -74,21 +74,35 @@ export default function Home() {
 
   if (!isSetUp || showSetup) {
     return (
-      <div className="min-h-dvh flex flex-col items-center justify-center p-5 bg-background safe-area-all">
-        <motion.div
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.4 }}
-          className="w-full"
+      <div className="min-h-dvh flex flex-col bg-background">
+        {/* Green header bar */}
+        <div
+          className="bg-primary text-primary-foreground px-5 pt-3 pb-4 safe-area-top"
+          style={{
+            backgroundImage: `radial-gradient(ellipse at 30% 0%, rgba(218,165,32,0.15) 0%, transparent 60%)`,
+          }}
         >
-          <PlayerSetup
-            initialPlayer={player}
-            onComplete={(p: LocalPlayer) => {
-              savePlayer(p);
-              setShowSetup(false);
-            }}
-          />
-        </motion.div>
+          <h1 className="font-[family-name:var(--font-heading)] text-xl font-bold tracking-tight text-center">
+            Hakklihamasin
+          </h1>
+        </div>
+
+        {/* Setup form — fills the screen */}
+        <div className="flex-1 px-5 py-6 overflow-y-auto">
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.4 }}
+          >
+            <PlayerSetup
+              initialPlayer={player}
+              onComplete={(p: LocalPlayer) => {
+                savePlayer(p);
+                setShowSetup(false);
+              }}
+            />
+          </motion.div>
+        </div>
       </div>
     );
   }
