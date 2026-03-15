@@ -432,26 +432,72 @@ export default function CreateTournament() {
               exit={{ x: -20, opacity: 0 }}
               className="space-y-5"
             >
-              {/* Presets — only if no GPS data loaded */}
+              {strokeIndices && (
+                <div className="px-3 py-2 bg-birdie/10 rounded-xl text-sm flex items-center gap-2">
+                  <Check className="w-4 h-4 text-birdie shrink-0" />
+                  Parid laetud: {courseName} (par {totalPar})
+                </div>
+              )}
+
+              {/* Quick setup: holes count */}
+              <div>
+                <Label className="text-base mb-3 block">Augude arv</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  {[9, 18].map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => {
+                        setHolesCount(n as 9 | 18);
+                        // Auto-generate pars for the new count
+                        if (!strokeIndices) {
+                          const newPars = generateParsForTotal(n, n === 9 ? 36 : totalPar || 72);
+                          setHolePars(newPars);
+                        }
+                      }}
+                      className={`p-4 rounded-2xl border-2 text-center transition-all ${
+                        holesCount === n
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/40"
+                      }`}
+                    >
+                      <div className="text-3xl font-bold">{n}</div>
+                      <div className="text-sm text-muted-foreground">auku</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Quick par selector */}
               {!strokeIndices && (
                 <div>
-                  <Label className="text-base mb-3 block">Vali eelseadistus</Label>
-                  <div className="grid grid-cols-1 gap-2">
-                    {Object.keys(PAR_PRESETS).map((key) => (
+                  <Label className="text-base mb-3 block">
+                    Rada par kokku
+                  </Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(holesCount === 9
+                      ? [27, 33, 36]
+                      : [66, 70, 72]
+                    ).map((p) => (
                       <button
-                        key={key}
-                        onClick={() => applyPreset(key)}
-                        className={`text-left px-4 py-3 rounded-xl border transition-colors ${
-                          JSON.stringify(holePars) ===
-                            JSON.stringify(PAR_PRESETS[key]) &&
-                          holesCount === PAR_PRESETS[key].length
-                            ? "border-primary bg-primary/5"
+                        key={p}
+                        onClick={() => {
+                          const newPars = generateParsForTotal(holesCount, p);
+                          setHolePars(newPars);
+                        }}
+                        className={`py-3 rounded-xl border text-center transition-all ${
+                          totalPar === p
+                            ? "border-primary bg-primary/5 font-bold"
                             : "border-border hover:border-primary/40"
                         }`}
                       >
-                        <div className="font-medium">{key}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {PAR_PRESETS[key].join("-")}
+                        <div className="text-lg font-semibold">Par {p}</div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {p === 27 && "Par-3 rada"}
+                          {p === 33 && "Lühike rada"}
+                          {p === 36 && "Standard 9"}
+                          {p === 66 && "Lühike 18"}
+                          {p === 70 && "Standard"}
+                          {p === 72 && "Täisrada"}
                         </div>
                       </button>
                     ))}
@@ -459,124 +505,48 @@ export default function CreateTournament() {
                 </div>
               )}
 
-              {strokeIndices && (
-                <div className="px-3 py-2 bg-birdie/10 rounded-xl text-sm">
-                  Parid laetud GPS-ist ({courseName}). Saad neid allpool muuta.
-                </div>
-              )}
-
+              {/* Compact hole pars display + edit */}
               <div>
-                <div className="flex items-center justify-between mb-3">
-                  <Label className="text-base">
-                    Augu parid ({holesCount} auku, par {totalPar})
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="text-sm text-muted-foreground">
+                    Augude parid (par {totalPar})
                   </Label>
-                  <div className="flex gap-1">
+                  <span className="text-xs text-muted-foreground">
+                    Puuduta muutmiseks
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {holePars.slice(0, holesCount).map((par, i) => (
                     <button
+                      key={i}
                       onClick={() => {
-                        setHolesCount(9);
-                        if (holePars.length < 9) {
-                          setHolePars([...holePars, ...new Array(9 - holePars.length).fill(4)]);
-                        }
+                        // Cycle through 3→4→5→3
+                        const next = par === 5 ? 3 : par + 1;
+                        updateHolePar(i, next - par);
                       }}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-medium ${
-                        holesCount === 9
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-muted-foreground"
+                      className={`w-9 h-9 rounded-lg text-sm font-semibold flex items-center justify-center transition-all active:scale-90 ${
+                        par === 3
+                          ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                          : par === 5
+                          ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                          : "bg-muted text-foreground"
                       }`}
                     >
-                      9
+                      {par}
                     </button>
-                    <button
-                      onClick={() => {
-                        setHolesCount(18);
-                        if (holePars.length < 18) {
-                          setHolePars([...holePars, ...new Array(18 - holePars.length).fill(4)]);
-                        }
-                      }}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-medium ${
-                        holesCount === 18
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      18
-                    </button>
-                  </div>
+                  ))}
                 </div>
-
-                {/* Front 9 */}
-                <div className="mb-3">
-                  <p className="text-xs text-muted-foreground mb-1.5 font-medium">
-                    Esi 9
-                  </p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {holePars.slice(0, Math.min(9, holesCount)).map((par, i) => (
-                      <div
-                        key={i}
-                        className="flex items-center justify-between px-3 py-2 bg-muted/50 rounded-lg"
-                      >
-                        <span className="text-xs text-muted-foreground font-mono">
-                          #{i + 1}
-                        </span>
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => updateHolePar(i, -1)}
-                            className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-muted"
-                          >
-                            <Minus className="w-3 h-3" />
-                          </button>
-                          <span className="w-5 text-center font-semibold">
-                            {par}
-                          </span>
-                          <button
-                            onClick={() => updateHolePar(i, 1)}
-                            className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-muted"
-                          >
-                            <Plus className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                <div className="flex gap-3 mt-2 text-[10px] text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <span className="w-3 h-3 rounded bg-red-100 dark:bg-red-900/30" /> Par 3
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="w-3 h-3 rounded bg-muted" /> Par 4
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="w-3 h-3 rounded bg-blue-100 dark:bg-blue-900/30" /> Par 5
+                  </span>
                 </div>
-
-                {/* Back 9 */}
-                {holesCount === 18 && (
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1.5 font-medium">
-                      Taga 9
-                    </p>
-                    <div className="grid grid-cols-3 gap-2">
-                      {holePars.slice(9, 18).map((par, i) => (
-                        <div
-                          key={i + 9}
-                          className="flex items-center justify-between px-3 py-2 bg-muted/50 rounded-lg"
-                        >
-                          <span className="text-xs text-muted-foreground font-mono">
-                            #{i + 10}
-                          </span>
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => updateHolePar(i + 9, -1)}
-                              className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-muted"
-                            >
-                              <Minus className="w-3 h-3" />
-                            </button>
-                            <span className="w-5 text-center font-semibold">
-                              {par}
-                            </span>
-                            <button
-                              onClick={() => updateHolePar(i + 9, 1)}
-                              className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-muted"
-                            >
-                              <Plus className="w-3 h-3" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             </motion.div>
           )}
@@ -705,6 +675,50 @@ export default function CreateTournament() {
       )}
     </div>
   );
+}
+
+/**
+ * Generate hole pars that add up to the target total.
+ * Creates a realistic mix of par 3, 4, 5 holes.
+ */
+function generateParsForTotal(holes: number, targetPar: number): number[] {
+  // Start with all par 4s
+  const pars = new Array(holes).fill(4);
+  let currentTotal = holes * 4;
+
+  // Standard patterns: typical 18-hole has four par-3s and four par-5s
+  // Typical 9-hole has two par-3s and two par-5s
+  const par3Positions = holes === 9 ? [2, 6] : [2, 6, 11, 15];
+  const par5Positions = holes === 9 ? [4, 8] : [1, 7, 12, 17];
+
+  // Add par 5s first (if we need to increase total)
+  for (const pos of par5Positions) {
+    if (pos < holes && currentTotal < targetPar) {
+      pars[pos] = 5;
+      currentTotal++;
+    }
+  }
+
+  // Add par 3s (if we need to decrease total)
+  for (const pos of par3Positions) {
+    if (pos < holes && currentTotal > targetPar) {
+      pars[pos] = 3;
+      currentTotal--;
+    }
+  }
+
+  // Fine-tune: adjust remaining holes to hit exact target
+  for (let i = 0; i < holes && currentTotal !== targetPar; i++) {
+    if (currentTotal < targetPar && pars[i] < 5) {
+      pars[i]++;
+      currentTotal++;
+    } else if (currentTotal > targetPar && pars[i] > 3) {
+      pars[i]--;
+      currentTotal--;
+    }
+  }
+
+  return pars;
 }
 
 function generateShareCode(): string {
