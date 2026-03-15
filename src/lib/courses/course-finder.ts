@@ -30,7 +30,7 @@ const OVERPASS_API = "https://overpass-api.de/api/interpreter";
 export async function findNearbyCourses(
   lat: number,
   lng: number,
-  radiusMeters: number = 25000
+  radiusMeters: number = 80000
 ): Promise<FoundCourse[]> {
   // Overpass query: leia rajad + nende augud
   const query = `[out:json][timeout:30];

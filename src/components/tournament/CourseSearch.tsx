@@ -33,7 +33,7 @@ export function CourseSearch({ onSelect }: CourseSearchProps) {
 
       setStatus("searching");
 
-      const found = await findNearbyCourses(latitude, longitude, 25000);
+      const found = await findNearbyCourses(latitude, longitude, 80000);
       setCourses(found);
       setStatus("results");
 

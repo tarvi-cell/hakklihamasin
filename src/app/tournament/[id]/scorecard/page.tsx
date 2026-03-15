@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, use } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, Grid3X3 } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { HoleCard } from "@/components/scorecard/HoleCard";
 import {
   formatTotalRelativeScore,
@@ -12,12 +12,21 @@ import {
 } from "@/lib/scoring/calculator";
 import { getRandomMessage } from "@/lib/messages/templates";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+
+interface TournamentPlayer {
+  id: string;
+  name: string;
+  emoji: string;
+  handicap: number | null;
+}
 
 interface LocalTournament {
   id: string;
   name: string;
   holes_count: number;
   hole_pars: number[];
+  players: TournamentPlayer[];
   settings?: {
     max_strokes_mode?: "par_plus" | "fixed" | "unlimited";
     max_strokes_value?: number | null;
@@ -26,7 +35,8 @@ interface LocalTournament {
   [key: string]: unknown;
 }
 
-interface LocalScore {
+interface ScoreEntry {
+  playerId: string;
   hole: number;
   strokes: number;
   timestamp: string;
@@ -39,26 +49,42 @@ export default function ScorecardPage({
 }) {
   const { id } = use(params);
   const [tournament, setTournament] = useState<LocalTournament | null>(null);
-  const [scores, setScores] = useState<LocalScore[]>([]);
+  const [scores, setScores] = useState<ScoreEntry[]>([]);
   const [currentHole, setCurrentHole] = useState(1);
+  const [activePlayerId, setActivePlayerId] = useState<string>("");
   const [direction, setDirection] = useState(0);
-  const [lastUndo, setLastUndo] = useState<LocalScore | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem(`hakklihamasin-tournament-${id}`);
     if (stored) {
-      setTournament(JSON.parse(stored));
+      const t = JSON.parse(stored);
+      setTournament(t);
+      if (t.players?.length > 0) {
+        setActivePlayerId(t.players[0].id);
+      }
     }
-    const storedScores = localStorage.getItem(
-      `hakklihamasin-scores-${id}`
-    );
+    const storedScores = localStorage.getItem(`hakklihamasin-scores-${id}`);
     if (storedScores) {
-      setScores(JSON.parse(storedScores));
+      const parsed = JSON.parse(storedScores);
+      // Migrate old format (without playerId)
+      if (parsed.length > 0 && !parsed[0].playerId) {
+        const playerId =
+          JSON.parse(localStorage.getItem(`hakklihamasin-tournament-${id}`) || "{}")
+            ?.players?.[0]?.id || "default";
+        const migrated = parsed.map((s: { hole: number; strokes: number; timestamp: string }) => ({
+          ...s,
+          playerId,
+        }));
+        setScores(migrated);
+        localStorage.setItem(`hakklihamasin-scores-${id}`, JSON.stringify(migrated));
+      } else {
+        setScores(parsed);
+      }
     }
   }, [id]);
 
   const saveScores = useCallback(
-    (newScores: LocalScore[]) => {
+    (newScores: ScoreEntry[]) => {
       setScores(newScores);
       localStorage.setItem(
         `hakklihamasin-scores-${id}`,
@@ -70,50 +96,41 @@ export default function ScorecardPage({
 
   const handleScore = useCallback(
     (holeNumber: number, strokes: number) => {
-      if (!tournament) return;
+      if (!tournament || !activePlayerId) return;
 
-      const existing = scores.find((s) => s.hole === holeNumber);
-      const newScore: LocalScore = {
+      const existing = scores.find(
+        (s) => s.playerId === activePlayerId && s.hole === holeNumber
+      );
+      const newScore: ScoreEntry = {
+        playerId: activePlayerId,
         hole: holeNumber,
         strokes,
         timestamp: new Date().toISOString(),
       };
 
-      let newScores: LocalScore[];
+      let newScores: ScoreEntry[];
       if (existing) {
         newScores = scores.map((s) =>
-          s.hole === holeNumber ? newScore : s
+          s.playerId === activePlayerId && s.hole === holeNumber
+            ? newScore
+            : s
         );
       } else {
         newScores = [...scores, newScore];
       }
       saveScores(newScores);
 
-      // Set undo target
-      setLastUndo(existing || null);
+      // Get active player info
+      const activePlayer = tournament.players.find(
+        (p) => p.id === activePlayerId
+      );
+      const playerName = activePlayer?.name || "Mängija";
 
       // Trigger fun message
       const par = tournament.hole_pars[holeNumber - 1];
       const scoreName = getScoreName(strokes, par);
-      const playerName = (() => {
-        try {
-          const p = JSON.parse(
-            localStorage.getItem("hakklihamasin-player") || "{}"
-          );
-          return p.name || "Mängija";
-        } catch {
-          return "Mängija";
-        }
-      })();
 
-      // Show message for notable scores
-      if (
-        scoreName === "ace" ||
-        scoreName === "albatross" ||
-        scoreName === "eagle" ||
-        scoreName === "birdie" ||
-        scoreName === "triple_plus"
-      ) {
+      if (["ace", "albatross", "eagle", "birdie", "triple_plus"].includes(scoreName)) {
         const msg = getRandomMessage(scoreName, {
           player: playerName,
           hole: holeNumber,
@@ -130,74 +147,65 @@ export default function ScorecardPage({
         }
       }
 
-      // Check for bounce-back
-      if (scoreName === "birdie" || scoreName === "eagle") {
-        const prevScore = scores.find((s) => s.hole === holeNumber - 1);
+      // Bounce-back check
+      const playerScores = newScores.filter((s) => s.playerId === activePlayerId);
+      if ((scoreName === "birdie" || scoreName === "eagle") && holeNumber > 1) {
+        const prevScore = playerScores.find((s) => s.hole === holeNumber - 1);
         if (prevScore) {
-          const prevPar = tournament.hole_pars[holeNumber - 2];
-          const prevDiff = prevScore.strokes - prevPar;
+          const prevDiff = prevScore.strokes - tournament.hole_pars[holeNumber - 2];
           if (prevDiff >= 2) {
-            const msg = getRandomMessage("bounce_back", {
-              player: playerName,
-            });
-            if (msg) {
-              setTimeout(() => {
-                toast(msg, {
-                  duration: 3000,
-                  className: "!bg-amber-50 !border-amber-200",
-                });
-              }, 1500);
-            }
+            const msg = getRandomMessage("bounce_back", { player: playerName });
+            if (msg) setTimeout(() => toast(msg, { duration: 3000 }), 1500);
           }
         }
       }
 
-      // Check for first birdie
-      const hasPriorBirdie = scores.some((s) => {
-        const p = tournament.hole_pars[s.hole - 1];
-        return s.strokes < p && s.hole !== holeNumber;
-      });
-      if ((scoreName === "birdie" || scoreName === "eagle") && !hasPriorBirdie) {
-        const msg = getRandomMessage("first_birdie", {
-          player: playerName,
-        });
-        if (msg) {
-          setTimeout(() => {
-            toast(msg, { duration: 3000 });
-          }, 2000);
-        }
-      }
-
-      // Auto-advance to next hole after scoring
-      if (holeNumber < tournament.holes_count) {
-        setTimeout(() => {
-          setDirection(1);
-          setCurrentHole(holeNumber + 1);
-        }, 600);
-      }
-
-      // Show undo toast
+      // Undo toast
       const label = getScoreLabel(scoreName);
       const emoji = getScoreEmoji(scoreName);
-      toast(`${emoji} Auk ${holeNumber}: ${strokes} (${label})`, {
-        duration: 5000,
+      toast(`${emoji} ${playerName} auk ${holeNumber}: ${strokes} (${label})`, {
+        duration: 4000,
         action: {
           label: "Tühista",
           onClick: () => {
             if (existing) {
-              const reverted = newScores.map((s) =>
-                s.hole === holeNumber ? existing : s
+              saveScores(
+                newScores.map((s) =>
+                  s.playerId === activePlayerId && s.hole === holeNumber
+                    ? existing
+                    : s
+                )
               );
-              saveScores(reverted);
             } else {
-              saveScores(newScores.filter((s) => s.hole !== holeNumber));
+              saveScores(
+                newScores.filter(
+                  (s) => !(s.playerId === activePlayerId && s.hole === holeNumber)
+                )
+              );
             }
-            toast.dismiss();
           },
         },
       });
+
+      // Auto-advance: next player or next hole
+      const playerIndex = tournament.players.findIndex(
+        (p) => p.id === activePlayerId
+      );
+      if (playerIndex < tournament.players.length - 1) {
+        // Move to next player on same hole
+        setTimeout(() => {
+          setActivePlayerId(tournament.players[playerIndex + 1].id);
+        }, 400);
+      } else if (holeNumber < tournament.holes_count) {
+        // All players scored this hole — move to next hole, first player
+        setTimeout(() => {
+          setDirection(1);
+          setCurrentHole(holeNumber + 1);
+          setActivePlayerId(tournament.players[0].id);
+        }, 600);
+      }
     },
-    [tournament, scores, saveScores]
+    [tournament, scores, saveScores, activePlayerId]
   );
 
   const goToHole = (hole: number) => {
@@ -215,48 +223,70 @@ export default function ScorecardPage({
   }
 
   const currentPar = tournament.hole_pars[currentHole - 1];
-  const currentScore = scores.find((s) => s.hole === currentHole);
+  const activePlayerScore = scores.find(
+    (s) => s.playerId === activePlayerId && s.hole === currentHole
+  );
 
-  // Max strokes calculation from tournament settings
+  // Max strokes
   const getMaxStrokes = (par: number): number => {
     const settings = tournament.settings;
-    if (!settings?.max_strokes_mode || settings.max_strokes_mode === "unlimited") return 20;
-    if (settings.max_strokes_mode === "fixed") return Number(settings.max_strokes_value) || 12;
-    // par_plus
+    if (!settings?.max_strokes_mode || settings.max_strokes_mode === "unlimited")
+      return 20;
+    if (settings.max_strokes_mode === "fixed")
+      return Number(settings.max_strokes_value) || 12;
     return par + (Number(settings.max_strokes_value) || 3);
   };
-  const currentMaxStrokes = getMaxStrokes(currentPar);
-  const completedScores = scores
-    .filter((s) => s.hole <= tournament.holes_count)
-    .map((s) => ({
-      strokes: s.strokes,
-      par: tournament.hole_pars[s.hole - 1],
-    }));
-  const totalRelative = formatTotalRelativeScore(completedScores);
-  const totalStrokes = completedScores.reduce((sum, s) => sum + s.strokes, 0);
-  const totalPar = completedScores.reduce((sum, s) => sum + s.par, 0);
+
+  // Stats for all players
+  const getPlayerStats = (playerId: string) => {
+    const playerScores = scores
+      .filter((s) => s.playerId === playerId && s.hole <= tournament.holes_count)
+      .map((s) => ({
+        strokes: s.strokes,
+        par: tournament.hole_pars[s.hole - 1],
+      }));
+    return {
+      totalRelative: formatTotalRelativeScore(playerScores),
+      thru: playerScores.length,
+      totalStrokes: playerScores.reduce((sum, s) => sum + s.strokes, 0),
+    };
+  };
+
+  // Active player stats
+  const activeStats = getPlayerStats(activePlayerId);
+
+  // Other players' scores on current hole
+  const otherPlayersOnHole = tournament.players
+    .filter((p) => p.id !== activePlayerId)
+    .map((p) => {
+      const s = scores.find(
+        (sc) => sc.playerId === p.id && sc.hole === currentHole
+      );
+      return { ...p, score: s?.strokes ?? null };
+    });
 
   return (
     <div className="flex flex-col h-full">
       {/* Top status bar */}
-      <div className="bg-primary text-primary-foreground px-4 py-3">
+      <div className="bg-primary text-primary-foreground px-4 py-3 safe-area-top">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="font-semibold text-sm opacity-80">
+            <h2 className="font-semibold text-xs opacity-70">
               {tournament.name}
             </h2>
-            <div className="flex items-center gap-3 mt-0.5">
-              <span className="text-2xl font-bold">{totalRelative}</span>
-              <span className="text-sm opacity-70">
-                {totalStrokes} löök{totalStrokes !== 1 ? "i" : ""} /{" "}
-                {scores.length} auku läbitud
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-2xl font-bold">{activeStats.totalRelative}</span>
+              <span className="text-xs opacity-60">
+                {activeStats.totalStrokes} löök{activeStats.totalStrokes !== 1 ? "i" : ""} / {activeStats.thru} auku
               </span>
             </div>
           </div>
           {/* Mini scorecard dots */}
           <div className="flex flex-wrap gap-1 max-w-[120px] justify-end">
             {Array.from({ length: tournament.holes_count }, (_, i) => {
-              const score = scores.find((s) => s.hole === i + 1);
+              const score = scores.find(
+                (s) => s.playerId === activePlayerId && s.hole === i + 1
+              );
               const par = tournament.hole_pars[i];
               let dotColor = "bg-white/20";
               if (score) {
@@ -270,10 +300,8 @@ export default function ScorecardPage({
                 <button
                   key={i}
                   onClick={() => goToHole(i + 1)}
-                  className={`w-3.5 h-3.5 rounded-full ${dotColor} ${
-                    i + 1 === currentHole
-                      ? "ring-2 ring-white ring-offset-1 ring-offset-primary"
-                      : ""
+                  className={`w-3 h-3 rounded-full ${dotColor} ${
+                    i + 1 === currentHole ? "ring-2 ring-white ring-offset-1 ring-offset-primary" : ""
                   } transition-all`}
                 />
               );
@@ -282,30 +310,60 @@ export default function ScorecardPage({
         </div>
       </div>
 
-      {/* Hole navigation arrows + card */}
-      <div className="flex-1 flex items-center px-2 py-4">
+      {/* Player selector */}
+      {tournament.players.length > 1 && (
+        <div className="flex gap-1.5 px-3 py-2 bg-card border-b overflow-x-auto">
+          {tournament.players.map((p) => {
+            const isActive = p.id === activePlayerId;
+            const hasScore = scores.some(
+              (s) => s.playerId === p.id && s.hole === currentHole
+            );
+            return (
+              <button
+                key={p.id}
+                onClick={() => setActivePlayerId(p.id)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-all shrink-0",
+                  isActive
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : hasScore
+                    ? "bg-birdie/15 text-foreground"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                <span className="text-base">{p.emoji}</span>
+                <span className="font-medium text-xs">{p.name}</span>
+                {hasScore && !isActive && <span className="text-[10px]">✓</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Hole card */}
+      <div className="flex-1 flex items-center px-2 py-3">
         <button
           onClick={() => goToHole(currentHole - 1)}
           disabled={currentHole === 1}
-          className="p-2 text-muted-foreground hover:text-foreground disabled:opacity-20 transition-colors"
+          className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-20 transition-colors"
         >
-          <ChevronLeft className="w-8 h-8" />
+          <ChevronLeft className="w-7 h-7" />
         </button>
 
         <div className="flex-1 overflow-hidden">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
-              key={currentHole}
-              initial={{ x: direction * 100, opacity: 0 }}
+              key={`${currentHole}-${activePlayerId}`}
+              initial={{ x: direction * 80, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
-              exit={{ x: direction * -100, opacity: 0 }}
-              transition={{ duration: 0.2, ease: "easeInOut" }}
+              exit={{ x: direction * -80, opacity: 0 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
             >
               <HoleCard
                 holeNumber={currentHole}
                 par={currentPar}
-                maxStrokes={currentMaxStrokes}
-                currentStrokes={currentScore?.strokes ?? null}
+                maxStrokes={getMaxStrokes(currentPar)}
+                currentStrokes={activePlayerScore?.strokes ?? null}
                 onScore={(strokes) => handleScore(currentHole, strokes)}
               />
             </motion.div>
@@ -315,15 +373,49 @@ export default function ScorecardPage({
         <button
           onClick={() => goToHole(currentHole + 1)}
           disabled={currentHole === tournament.holes_count}
-          className="p-2 text-muted-foreground hover:text-foreground disabled:opacity-20 transition-colors"
+          className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-20 transition-colors"
         >
-          <ChevronRight className="w-8 h-8" />
+          <ChevronRight className="w-7 h-7" />
         </button>
       </div>
 
-      {/* Hole number indicator */}
-      <div className="text-center pb-4 text-sm text-muted-foreground">
+      {/* Other players' scores on this hole */}
+      {otherPlayersOnHole.length > 0 && (
+        <div className="px-4 pb-3">
+          <div className="flex gap-2 overflow-x-auto">
+            {otherPlayersOnHole.map((p) => (
+              <div
+                key={p.id}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-muted/50 rounded-xl text-xs shrink-0"
+              >
+                <span>{p.emoji}</span>
+                <span className="font-medium">{p.name}</span>
+                {p.score !== null ? (
+                  <span className={cn(
+                    "font-bold",
+                    p.score < currentPar ? "text-green-600" :
+                    p.score === currentPar ? "text-foreground" :
+                    "text-orange-600"
+                  )}>
+                    {p.score}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Hole number */}
+      <div className="text-center pb-2 text-xs text-muted-foreground">
         Auk {currentHole} / {tournament.holes_count}
+        {tournament.players.length > 1 && (
+          <span className="ml-2">
+            — {tournament.players.find((p) => p.id === activePlayerId)?.name}
+          </span>
+        )}
       </div>
     </div>
   );

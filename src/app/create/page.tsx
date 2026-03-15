@@ -171,6 +171,14 @@ export default function CreateTournament() {
   };
 
   const handleCreate = async () => {
+    // Create player entry for the TD
+    const tdPlayer = {
+      id: player.id || crypto.randomUUID(),
+      name: player.name,
+      emoji: player.emoji,
+      handicap: player.handicap,
+    };
+
     const tournament = {
       id: crypto.randomUUID(),
       name,
@@ -182,12 +190,13 @@ export default function CreateTournament() {
       share_code: generateShareCode(),
       status: "setup" as const,
       formats: selectedFormats,
+      players: [tdPlayer], // TD is first player
       settings: {
         use_handicaps: useHandicaps,
         max_strokes_mode: maxStrokesSetting.mode,
         max_strokes_value: maxStrokesSetting.value ?? null,
       },
-      created_by: player.id,
+      created_by: tdPlayer.id,
       created_at: new Date().toISOString(),
     };
 
@@ -202,32 +211,57 @@ export default function CreateTournament() {
 
   const totalPar = holePars.slice(0, holesCount).reduce((a, b) => a + b, 0);
 
-  const FORMATS = [
+  const FORMAT_SECTIONS = [
     {
-      id: "stroke_play",
-      name: "Stroke Play",
-      emoji: "🏌️",
-      desc: "Klassikaline — vähem lööke, parem tulemus",
+      title: "Individuaalsed",
+      formats: [
+        { id: "stroke_play", name: "Stroke Play", emoji: "🏌️", desc: "Klassikaline — vähem lööke, parem tulemus" },
+        { id: "stableford", name: "Stableford", emoji: "⭐", desc: "Punktid auguti — halb auk ei hävita ringi" },
+        { id: "skins", name: "Skins", emoji: "💰", desc: "Iga auk on eraldi võistlus — viigid lähevad edasi" },
+        { id: "match_play", name: "Match Play", emoji: "⚔️", desc: "Üks-ühele — iga auk eraldi võistlus" },
+        { id: "nassau", name: "Nassau", emoji: "🎰", desc: "Kolm matši ühes — esi 9, taga 9, kokku" },
+        { id: "quota", name: "Quota", emoji: "🎯", desc: "Igaüks saab isikliku sihtmärgi HCP järgi" },
+      ],
     },
     {
-      id: "stableford",
-      name: "Stableford",
-      emoji: "⭐",
-      desc: "Punktid auguti — halb auk ei hävita ringi",
+      title: "Tiimi formaadid",
+      formats: [
+        { id: "best_ball", name: "Best Ball", emoji: "🤝", desc: "Tiimi parim tulemus igal augul loeb" },
+        { id: "scramble", name: "Scramble", emoji: "🤠", desc: "Kõik löövad, valige parim — koos on lihtsam" },
+        { id: "shamble", name: "Shamble", emoji: "🎪", desc: "Parim drive, siis igaüks oma palli" },
+        { id: "cha_cha_cha", name: "Cha Cha Cha", emoji: "💃", desc: "1, 2 või 3 parimat skoori loevad — vaheldub" },
+        { id: "six_six_six", name: "6-6-6", emoji: "6️⃣", desc: "Paarid roteeruvad iga 6 auku" },
+      ],
     },
     {
-      id: "skins",
-      name: "Skins",
-      emoji: "💰",
-      desc: "Iga auk on eraldi võistlus — viigid lähevad edasi",
+      title: "Erikujulised",
+      formats: [
+        { id: "meat_grinder", name: "Hakklihamasin", emoji: "🔪", desc: "Formaat vahetub iga 3 auku — aju hakklihamasin!" },
+        { id: "wolf", name: "Wolf", emoji: "🐺", desc: "Hunt valib partneri — või läheb üksi!" },
+        { id: "hammer", name: "Hammer", emoji: "🔨", desc: "Topelda panuseid igal hetkel" },
+        { id: "bloodsomes", name: "Bloodsomes", emoji: "🩸", desc: "Vastased valivad su halvema drive'i" },
+        { id: "bingo_bango_bongo", name: "Bingo Bango Bongo", emoji: "🥁", desc: "3 punkti per auk — esimene greenil, lähedaim, esimene augus" },
+      ],
     },
     {
-      id: "best_ball",
-      name: "Best Ball",
-      emoji: "🤝",
-      desc: "Tiimi parim tulemus igal augul loeb",
+      title: "Kõrvalmängud",
+      formats: [
+        { id: "dots", name: "Dots / Garbage", emoji: "🗑️", desc: "Punktid saavutuste eest — sandy, greenie, chip-in" },
+        { id: "snake", name: "Snake", emoji: "🐍", desc: "Kes viimati 3-putt tegi, hoiab madu" },
+        { id: "rabbit", name: "Rabbit", emoji: "🐰", desc: "Püüa jänes — hoia teda 9. ja 18. augul" },
+      ],
+    },
+    {
+      title: "Lõbusad reeglid",
+      formats: [
+        { id: "string_game", name: "String Game", emoji: "🧵", desc: "Nööri pikkuse võrra saad palli liigutada" },
+        { id: "three_club", name: "3-Club Challenge", emoji: "3️⃣", desc: "Ainult 3 keppi + putter" },
+        { id: "foot_wedge", name: "Portuguese Caddie", emoji: "🦶", desc: "3-5x ringis saad palli jalaga lüüa" },
+      ],
     },
   ];
+
+  const ALL_FORMATS = FORMAT_SECTIONS.flatMap((s) => s.formats);
 
   return (
     <div className="min-h-dvh flex flex-col bg-background">
@@ -564,36 +598,39 @@ export default function CreateTournament() {
                 </p>
               </div>
 
-              {FORMATS.map((fmt) => (
-                <Card
-                  key={fmt.id}
-                  className={`cursor-pointer transition-all active:scale-[0.98] ${
-                    selectedFormats.includes(fmt.id)
-                      ? "border-primary shadow-sm"
-                      : "hover:border-primary/40"
-                  }`}
-                  onClick={() => toggleFormat(fmt.id)}
-                >
-                  <CardContent className="flex items-center gap-4 p-4">
-                    <div className="text-3xl">{fmt.emoji}</div>
-                    <div className="flex-1">
-                      <div className="font-semibold">{fmt.name}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {fmt.desc}
-                      </div>
-                    </div>
-                    {selectedFormats.includes(fmt.id) && (
-                      <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                        <Check className="w-4 h-4 text-primary-foreground" />
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+              {FORMAT_SECTIONS.map((section) => (
+                <div key={section.title} className="space-y-2">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-2">
+                    {section.title}
+                  </h3>
+                  {section.formats.map((fmt) => (
+                    <Card
+                      key={fmt.id}
+                      className={`cursor-pointer transition-all active:scale-[0.98] ${
+                        selectedFormats.includes(fmt.id)
+                          ? "border-primary bg-primary/5 shadow-sm"
+                          : "hover:border-primary/40"
+                      }`}
+                      onClick={() => toggleFormat(fmt.id)}
+                    >
+                      <CardContent className="flex items-center gap-3 p-3.5">
+                        <div className="text-2xl">{fmt.emoji}</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-sm">{fmt.name}</div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {fmt.desc}
+                          </div>
+                        </div>
+                        {selectedFormats.includes(fmt.id) && (
+                          <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center shrink-0">
+                            <Check className="w-3.5 h-3.5 text-primary-foreground" />
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               ))}
-
-              <p className="text-xs text-center text-muted-foreground pt-2">
-                Rohkem formaate (Match Play, Scramble, Hakklihamasin...) tuleb peagi!
-              </p>
             </motion.div>
           )}
 
@@ -638,7 +675,7 @@ export default function CreateTournament() {
                     <span>
                       {selectedFormats
                         .map(
-                          (f) => FORMATS.find((ff) => ff.id === f)?.name || f
+                          (f) => ALL_FORMATS.find((ff) => ff.id === f)?.name || f
                         )
                         .join(", ")}
                     </span>
