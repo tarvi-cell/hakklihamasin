@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <clipPath id="circle-clip">
+      <circle cx="256" cy="256" r="256"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="256" fill="#1B4332"/>
+
+  <!-- Golf ball - white circle with dimple pattern -->
+  <circle cx="256" cy="280" r="120" fill="#F5F5F0" opacity="0.95"/>
+
+  <!-- Dimples on golf ball - subtle grid -->
+  <circle cx="220" cy="250" r="10" fill="none" stroke="#D0D0C8" stroke-width="1.5"/>
+  <circle cx="256" cy="240" r="10" fill="none" stroke="#D0D0C8" stroke-width="1.5"/>
+  <circle cx="292" cy="250" r="10" fill="none" stroke="#D0D0C8" stroke-width="1.5"/>
+  <circle cx="238" cy="280" r="10" fill="none" stroke="#D0D0C8" stroke-width="1.5"/>
+  <circle cx="274" cy="280" r="10" fill="none" stroke="#D0D0C8" stroke-width="1.5"/>
+  <circle cx="220" cy="310" r="10" fill="none" stroke="#D0D0C8" stroke-width="1.5"/>
+  <circle cx="256" cy="310" r="10" fill="none" stroke="#D0D0C8" stroke-width="1.5"/>
+  <circle cx="292" cy="310" r="10" fill="none" stroke="#D0D0C8" stroke-width="1.5"/>
+
+  <!-- Meat grinder crank coming out of the ball top -->
+  <!-- Vertical shaft -->
+  <rect x="248" y="120" width="16" height="50" rx="4" fill="#DAA520"/>
+  <!-- Horizontal arm -->
+  <rect x="248" y="112" width="70" height="16" rx="8" fill="#DAA520"/>
+  <!-- Crank handle (circle at end) -->
+  <circle cx="318" cy="120" r="18" fill="none" stroke="#DAA520" stroke-width="10"/>
+  <circle cx="318" cy="120" r="6" fill="#1B4332"/>
+
+  <!-- Bold "H" letter overlaid on the ball -->
+  <text x="256" y="302" text-anchor="middle" dominant-baseline="central"
+        font-family="Arial Black, Arial, sans-serif" font-weight="900"
+        font-size="100" fill="#1B4332" opacity="0.2">H</text>
+
+  <!-- Gold ring around ball -->
+  <circle cx="256" cy="280" r="120" fill="none" stroke="#DAA520" stroke-width="6"/>
+</svg>
