@@ -14,22 +14,26 @@ import { useTournament } from "@/hooks/useTournament";
 import type { FoundCourse } from "@/lib/courses/course-finder";
 
 const FORMAT_OPTIONS = [
-  { id: "stroke_play", name: "Stroke Play", emoji: "🏌️" },
-  { id: "stableford", name: "Stableford", emoji: "⭐" },
-  { id: "skins", name: "Skins", emoji: "💰" },
-  { id: "best_ball", name: "Best Ball", emoji: "🤝" },
-  { id: "match_play", name: "Match Play", emoji: "⚔️" },
-  { id: "scramble", name: "Scramble", emoji: "🤠" },
-  { id: "nassau", name: "Nassau", emoji: "🎰" },
-  { id: "meat_grinder", name: "Hakklihamasin", emoji: "🔪" },
-  { id: "quota", name: "Quota", emoji: "🎯" },
-  { id: "wolf", name: "Wolf", emoji: "🐺" },
+  { id: "stroke_play", name: "Stroke Play", emoji: "🏌️", team: false },
+  { id: "stableford", name: "Stableford", emoji: "⭐", team: false },
+  { id: "skins", name: "Skins", emoji: "💰", team: false },
+  { id: "best_ball", name: "Best Ball", emoji: "🤝", team: true },
+  { id: "match_play", name: "Match Play", emoji: "⚔️", team: false },
+  { id: "scramble", name: "Scramble", emoji: "🤠", team: true },
+  { id: "shamble", name: "Shamble", emoji: "🎪", team: true },
+  { id: "nassau", name: "Nassau", emoji: "🎰", team: false },
+  { id: "meat_grinder", name: "Hakklihamasin", emoji: "🔪", team: true },
+  { id: "cha_cha_cha", name: "Cha Cha Cha", emoji: "💃", team: true },
+  { id: "quota", name: "Quota", emoji: "🎯", team: false },
+  { id: "wolf", name: "Wolf", emoji: "🐺", team: false },
+  { id: "six_six_six", name: "6-6-6", emoji: "6️⃣", team: true },
+  { id: "bloodsomes", name: "Bloodsomes", emoji: "🩸", team: true },
 ];
 
 export default function AddRoundPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const { rounds, addRound } = useTournament(id);
+  const { rounds, players, addRound } = useTournament(id);
 
   const nextRoundNumber = (rounds?.length || 0) + 1;
   const [roundName, setRoundName] = useState(`Päev ${nextRoundNumber}`);
@@ -40,7 +44,13 @@ export default function AddRoundPage({ params }: { params: Promise<{ id: string 
   );
   const [strokeIndices, setStrokeIndices] = useState<number[] | null>(null);
   const [selectedFormats, setSelectedFormats] = useState<string[]>(["stroke_play"]);
+  const [teams, setTeams] = useState<string[][]>([]); // Array of pairs: [["id1","id2"], ["id3","id4"]]
   const [isCreating, setIsCreating] = useState(false);
+
+  // Check if any selected format needs teams
+  const needsTeams = selectedFormats.some(
+    (f) => FORMAT_OPTIONS.find((o) => o.id === f)?.team
+  );
 
   const totalPar = holePars.slice(0, holesCount).reduce((a, b) => a + b, 0);
 
@@ -87,7 +97,9 @@ export default function AddRoundPage({ params }: { params: Promise<{ id: string 
       hole_pars: holePars.slice(0, holesCount),
       stroke_indices: strokeIndices?.slice(0, holesCount) || null,
       formats: selectedFormats,
-      settings: {},
+      settings: {
+        ...(teams.length > 0 ? { teams } : {}),
+      },
     });
 
     if (round) {
@@ -190,6 +202,109 @@ export default function AddRoundPage({ params }: { params: Promise<{ id: string 
             ))}
           </div>
         </div>
+
+        {/* Team pairing */}
+        {needsTeams && players.length >= 2 && (
+          <div>
+            <Label className="text-base mb-2 block">Paarid</Label>
+            <p className="text-xs text-muted-foreground mb-3">
+              Tiimiformaatide jaoks. Puuduta mängijat paari loomiseks.
+            </p>
+
+            {/* Auto-pair button */}
+            {teams.length === 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  // Auto-pair: first with second, third with fourth, etc.
+                  const pairs: string[][] = [];
+                  for (let i = 0; i < players.length - 1; i += 2) {
+                    pairs.push([players[i].id, players[i + 1].id]);
+                  }
+                  // Odd player gets solo team
+                  if (players.length % 2 !== 0) {
+                    pairs.push([players[players.length - 1].id]);
+                  }
+                  setTeams(pairs);
+                }}
+                className="w-full mb-3 border-dashed"
+              >
+                🎲 Automaatsed paarid
+              </Button>
+            )}
+
+            {/* Show current pairs */}
+            {teams.length > 0 && (
+              <div className="space-y-2 mb-3">
+                {teams.map((team, ti) => (
+                  <div key={ti} className="flex items-center gap-2 p-2.5 bg-primary/5 rounded-xl">
+                    <span className="text-xs font-bold text-primary w-6">#{ti + 1}</span>
+                    <div className="flex items-center gap-1.5 flex-1">
+                      {team.map((pid) => {
+                        const p = players.find((x) => x.id === pid);
+                        return p ? (
+                          <span key={pid} className="flex items-center gap-1 px-2 py-1 bg-card rounded-lg text-sm">
+                            <span>{p.emoji}</span>
+                            <span className="font-medium">{p.name}</span>
+                          </span>
+                        ) : null;
+                      })}
+                    </div>
+                    <button
+                      onClick={() => setTeams(teams.filter((_, i) => i !== ti))}
+                      className="text-xs text-muted-foreground hover:text-destructive"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+
+                {/* Unpaired players */}
+                {(() => {
+                  const paired = new Set(teams.flat());
+                  const unpaired = players.filter((p) => !paired.has(p.id));
+                  if (unpaired.length === 0) return null;
+                  return (
+                    <div className="text-xs text-muted-foreground pt-1">
+                      Paaritu: {unpaired.map((p) => `${p.emoji} ${p.name}`).join(", ")}
+                    </div>
+                  );
+                })()}
+
+                <Button variant="outline" size="sm" onClick={() => setTeams([])} className="text-xs">
+                  Tühjenda paarid
+                </Button>
+              </div>
+            )}
+
+            {/* Manual pairing (tap-to-pair) */}
+            {teams.length === 0 && (
+              <div className="grid grid-cols-2 gap-2">
+                {players.map((p) => (
+                  <button
+                    key={p.id}
+                    className="flex items-center gap-2 p-2.5 bg-muted/50 rounded-xl text-sm hover:bg-muted transition-colors"
+                    onClick={() => {
+                      // Find incomplete team or start new
+                      const incomplete = teams.findIndex((t) => t.length < 2);
+                      if (incomplete >= 0) {
+                        const newTeams = [...teams];
+                        newTeams[incomplete] = [...newTeams[incomplete], p.id];
+                        setTeams(newTeams);
+                      } else {
+                        setTeams([...teams, [p.id]]);
+                      }
+                    }}
+                  >
+                    <span className="text-lg">{p.emoji}</span>
+                    <span className="font-medium truncate">{p.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Create button */}
         <Button onClick={handleCreate} disabled={isCreating}

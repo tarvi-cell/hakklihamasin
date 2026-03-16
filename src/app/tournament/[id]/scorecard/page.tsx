@@ -179,6 +179,23 @@ function ScorecardInner({ id }: { id: string }) {
         </div>
       </div>
 
+      {/* Team/partner indicator */}
+      {(() => {
+        const roundSettings = activeRound?.settings as Record<string, unknown> | undefined;
+        const roundTeams = (roundSettings?.teams || []) as string[][];
+        if (roundTeams.length === 0) return null;
+        const myTeam = roundTeams.find((t) => t.includes(activePlayerId));
+        if (!myTeam || myTeam.length < 2) return null;
+        const partner = players.find((p) => myTeam.includes(p.id) && p.id !== activePlayerId);
+        if (!partner) return null;
+        return (
+          <div className="flex items-center justify-center gap-2 py-1.5 bg-primary/5 text-xs">
+            <span>🤝 Partner:</span>
+            <span className="font-medium">{partner.emoji} {partner.name}</span>
+          </div>
+        );
+      })()}
+
       {/* Player selector */}
       {players.length > 1 && (
         <div className="flex gap-1.5 px-3 py-2 bg-card border-b overflow-x-auto">
