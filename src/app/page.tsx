@@ -25,34 +25,45 @@ export default function Home() {
   const [showSetup, setShowSetup] = useState(false);
   const [recentTournaments, setRecentTournaments] = useState<RecentTournament[]>([]);
 
-  // Load recent tournaments from localStorage
+  // Load recent tournaments from Supabase
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const tournaments: RecentTournament[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key?.startsWith("hakklihamasin-tournament-")) {
-        try {
-          const t = JSON.parse(localStorage.getItem(key)!);
-          tournaments.push({
-            id: t.id,
-            name: t.name,
-            course_name: t.course_name,
-            holes_count: t.holes_count,
-            status: t.status,
-            created_at: t.created_at,
-          });
-        } catch {
-          // ignore
+    if (!player.id) return;
+    async function load() {
+      try {
+        const res = await fetch(`/api/tournaments?player_id=${player.id}`);
+        if (res.ok) {
+          const data = await res.json();
+          setRecentTournaments(
+            (data.tournaments || []).map((t: Record<string, unknown>) => ({
+              id: t.id as string,
+              name: t.name as string,
+              course_name: (t.course_name as string) || "Nimetamata",
+              holes_count: (t.holes_count as number) || 18,
+              status: (t.status as string) || "setup",
+              created_at: (t.created_at as string) || "",
+            }))
+          );
         }
+      } catch {
+        // Offline — try localStorage fallback
+        const tournaments: RecentTournament[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key?.startsWith("hakklihamasin-tournament-")) {
+            try {
+              const t = JSON.parse(localStorage.getItem(key)!);
+              tournaments.push({
+                id: t.id, name: t.name, course_name: t.course_name,
+                holes_count: t.holes_count, status: t.status, created_at: t.created_at,
+              });
+            } catch { /* ignore */ }
+          }
+        }
+        setRecentTournaments(tournaments);
       }
     }
-    tournaments.sort(
-      (a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    );
-    setRecentTournaments(tournaments);
-  }, []);
+    load();
+  }, [player.id]);
 
   if (!isLoaded) {
     return (

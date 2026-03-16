@@ -1,170 +1,118 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { use } from "react";
 import { motion } from "framer-motion";
-import { Beer, Trophy, TrendingUp, Frown, Zap } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { getScoreName } from "@/lib/scoring/calculator";
+import { useTournament } from "@/hooks/useTournament";
+import { useScores } from "@/hooks/useScores";
 
-interface LocalTournament {
-  id: string;
-  name: string;
-  holes_count: number;
-  hole_pars: number[];
-  [key: string]: unknown;
-}
-
-interface LocalScore {
-  hole: number;
-  strokes: number;
-}
-
-export default function NineteenthHole({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default function NineteenthHole({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const [tournament, setTournament] = useState<LocalTournament | null>(null);
-  const [scores, setScores] = useState<LocalScore[]>([]);
-  const [playerName, setPlayerName] = useState("Mängija");
+  const { tournament, players, isLoading: tLoading } = useTournament(id);
+  const { scores, isLoading: sLoading } = useScores(id);
 
-  useEffect(() => {
-    const stored = localStorage.getItem(`hakklihamasin-tournament-${id}`);
-    if (stored) setTournament(JSON.parse(stored));
-    const storedScores = localStorage.getItem(`hakklihamasin-scores-${id}`);
-    if (storedScores) setScores(JSON.parse(storedScores));
-    try {
-      const p = JSON.parse(
-        localStorage.getItem("hakklihamasin-player") || "{}"
-      );
-      if (p.name) setPlayerName(p.name);
-    } catch {
-      // ignore
-    }
-  }, [id]);
+  if (tLoading || sLoading) {
+    return <div className="flex items-center justify-center h-64"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>;
+  }
 
   if (!tournament || scores.length === 0) {
     return (
       <div className="px-4 py-5">
-        <h1 className="font-[family-name:var(--font-heading)] text-xl font-semibold mb-4">
-          19. Auk 🍺
-        </h1>
+        <h1 className="font-[family-name:var(--font-heading)] text-xl font-semibold mb-4">19. Auk 🍺</h1>
         <div className="text-center py-12 text-muted-foreground">
           <div className="text-4xl mb-2">🍺</div>
           <p>Lõpeta ring kõigepealt!</p>
-          <p className="text-sm">
-            Auhinnad ja statistika ilmuvad siia pärast viimast auku.
-          </p>
         </div>
       </div>
     );
   }
 
-  // Calculate awards
-  const birdieCount = scores.filter((s) => {
-    const par = tournament.hole_pars[s.hole - 1];
-    return s.strokes < par;
-  }).length;
+  // Calculate awards per player
+  const playerStats = players.map((p) => {
+    const ps = scores
+      .filter((s) => s.player_id === p.id)
+      .map((s) => ({
+        hole: s.hole_number,
+        strokes: s.strokes,
+        par: tournament.hole_pars[s.hole_number - 1],
+        relative: s.strokes - tournament.hole_pars[s.hole_number - 1],
+      }));
 
-  const parCount = scores.filter((s) => {
-    const par = tournament.hole_pars[s.hole - 1];
-    return s.strokes === par;
-  }).length;
+    const birdies = ps.filter((s) => s.relative < 0).length;
+    const pars = ps.filter((s) => s.relative === 0).length;
+    const total = ps.reduce((sum, s) => sum + s.strokes, 0);
+    const totalPar = ps.reduce((sum, s) => sum + s.par, 0);
+    const relative = total - totalPar;
 
-  const worstHole = scores.reduce<{ hole: number; diff: number; strokes: number }>(
-    (worst, s) => {
-      const par = tournament.hole_pars[s.hole - 1];
-      const diff = s.strokes - par;
-      return diff > worst.diff ? { hole: s.hole, diff, strokes: s.strokes } : worst;
-    },
-    { hole: 0, diff: -99, strokes: 0 }
-  );
+    const best = ps.reduce<{ hole: number; diff: number } | null>(
+      (b, s) => (!b || s.relative < b.diff ? { hole: s.hole, diff: s.relative } : b), null
+    );
+    const worst = ps.reduce<{ hole: number; diff: number } | null>(
+      (w, s) => (!w || s.relative > w.diff ? { hole: s.hole, diff: s.relative } : w), null
+    );
 
-  const bestHole = scores.reduce<{ hole: number; diff: number; strokes: number }>(
-    (best, s) => {
-      const par = tournament.hole_pars[s.hole - 1];
-      const diff = s.strokes - par;
-      return diff < best.diff ? { hole: s.hole, diff, strokes: s.strokes } : best;
-    },
-    { hole: 0, diff: 99, strokes: 0 }
-  );
+    const front9 = ps.filter((s) => s.hole <= 9).reduce((sum, s) => sum + s.relative, 0);
+    const back9 = ps.filter((s) => s.hole > 9).reduce((sum, s) => sum + s.relative, 0);
 
-  const front9 = scores
-    .filter((s) => s.hole <= 9)
-    .reduce((sum, s) => sum + (s.strokes - tournament.hole_pars[s.hole - 1]), 0);
-  const back9 = scores
-    .filter((s) => s.hole > 9)
-    .reduce((sum, s) => sum + (s.strokes - tournament.hole_pars[s.hole - 1]), 0);
+    return { ...p, total, relative, birdies, pars, best, worst, front9, back9, thru: ps.length };
+  }).filter((p) => p.thru > 0);
+
+  if (playerStats.length === 0) {
+    return (
+      <div className="px-4 py-5 text-center py-12 text-muted-foreground">
+        <div className="text-4xl mb-2">🍺</div>
+        <p>Pole veel piisavalt tulemusi</p>
+      </div>
+    );
+  }
+
+  // Determine award winners
+  const sorted = [...playerStats].sort((a, b) => a.relative - b.relative);
+  const winner = sorted[0];
+  const mostBirdies = [...playerStats].sort((a, b) => b.birdies - a.birdies)[0];
+  const mostPars = [...playerStats].sort((a, b) => b.pars - a.pars)[0];
+  const comebackKid = [...playerStats].sort((a, b) => (a.front9 - a.back9) - (b.front9 - b.back9))[0];
+  const cardWrecker = [...playerStats].sort((a, b) => (b.worst?.diff || 0) - (a.worst?.diff || 0))[0];
+  const roller = [...playerStats].sort((a, b) => {
+    const rangeA = (a.worst?.diff || 0) - (a.best?.diff || 0);
+    const rangeB = (b.worst?.diff || 0) - (b.best?.diff || 0);
+    return rangeB - rangeA;
+  })[0];
 
   const awards = [
-    {
-      icon: "🐦",
-      title: "Birdie Hunter",
-      value: `${birdieCount} birdie'd`,
-      delay: 0.1,
-    },
-    {
-      icon: "⛳",
-      title: "Mr. Consistent",
-      value: `${parCount} par'i`,
-      delay: 0.2,
-    },
-    {
-      icon: "🏆",
-      title: "Parim auk",
-      value: `#${bestHole.hole} (${bestHole.diff >= 0 ? "+" : ""}${bestHole.diff})`,
-      delay: 0.3,
-    },
-    {
-      icon: "💀",
-      title: "Card Wrecker",
-      value: `#${worstHole.hole} (${worstHole.strokes} lööki)`,
-      delay: 0.4,
-    },
-    {
-      icon: back9 < front9 ? "📈" : "📉",
-      title: back9 < front9 ? "Comeback Kid" : "Fast Starter",
-      value: `Esi 9: ${front9 >= 0 ? "+" : ""}${front9}, Taga 9: ${back9 >= 0 ? "+" : ""}${back9}`,
-      delay: 0.5,
-    },
+    { emoji: "🏆", title: "Low Gross", player: winner, value: `${winner.total} (${winner.relative >= 0 ? "+" : ""}${winner.relative})` },
+    { emoji: "🐦", title: "Birdie Hunter", player: mostBirdies, value: `${mostBirdies.birdies} birdie'd` },
+    { emoji: "⛳", title: "Mr. Consistent", player: mostPars, value: `${mostPars.pars} par'i` },
+    ...(comebackKid.front9 > comebackKid.back9 ? [{ emoji: "📈", title: "Comeback Kid", player: comebackKid, value: `Esi: +${comebackKid.front9} → Taga: ${comebackKid.back9 >= 0 ? "+" : ""}${comebackKid.back9}` }] : []),
+    { emoji: "💀", title: "Card Wrecker", player: cardWrecker, value: `Auk #${cardWrecker.worst?.hole} (+${cardWrecker.worst?.diff})` },
+    { emoji: "🎢", title: "Roller Coaster", player: roller, value: `Best: ${roller.best?.diff}, Worst: +${roller.worst?.diff}` },
   ];
 
   return (
     <div className="px-4 py-5">
       <div className="text-center mb-6">
-        <motion.div
-          initial={{ scale: 0, rotate: -180 }}
-          animate={{ scale: 1, rotate: 0 }}
-          transition={{ type: "spring", duration: 0.8 }}
-          className="text-6xl mb-3"
-        >
+        <motion.div initial={{ scale: 0, rotate: -180 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", duration: 0.8 }} className="text-6xl mb-3">
           🍺
         </motion.div>
-        <h1 className="font-[family-name:var(--font-heading)] text-2xl font-bold">
-          19. Auk
-        </h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Suur ring on tehtud, {playerName}! Siin on su auhinnad.
-        </p>
+        <h1 className="font-[family-name:var(--font-heading)] text-2xl font-bold">19. Auk</h1>
+        <p className="text-muted-foreground text-sm mt-1">Auhinnad ja tulemused</p>
       </div>
 
       <div className="space-y-3">
-        {awards.map((award) => (
-          <motion.div
-            key={award.title}
-            initial={{ x: -30, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            transition={{ delay: award.delay }}
-          >
-            <Card>
+        {awards.map((award, i) => (
+          <motion.div key={award.title} initial={{ x: -30, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: i * 0.15 }}>
+            <Card className={i === 0 ? "border-gold/50 bg-gold/5" : ""}>
               <CardContent className="flex items-center gap-4 p-4">
-                <span className="text-3xl">{award.icon}</span>
+                <span className="text-3xl">{award.emoji}</span>
                 <div className="flex-1">
                   <div className="font-semibold">{award.title}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {award.value}
-                  </div>
+                  <div className="text-sm text-muted-foreground">{award.value}</div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xl">{award.player.emoji}</span>
+                  <span className="font-medium text-sm">{award.player.name}</span>
                 </div>
               </CardContent>
             </Card>
@@ -172,18 +120,25 @@ export default function NineteenthHole({
         ))}
       </div>
 
-      <motion.div
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.8 }}
-        className="text-center mt-8 p-6 bg-primary/5 rounded-2xl"
-      >
-        <p className="text-lg font-semibold">
-          What a round, legend! ⛳
-        </p>
-        <p className="text-sm text-muted-foreground mt-1">
-          See you on the first tee next time!
-        </p>
+      {/* Final standings */}
+      <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: awards.length * 0.15 + 0.2 }} className="mt-6">
+        <h3 className="font-semibold mb-3">Lõplik järjestus</h3>
+        {sorted.map((p, i) => (
+          <div key={p.id} className="flex items-center gap-3 py-2 border-b last:border-0">
+            <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${i === 0 ? "bg-gold/20 text-gold" : "bg-muted text-muted-foreground"}`}>
+              {i + 1}
+            </span>
+            <span className="text-lg">{p.emoji}</span>
+            <span className="font-medium flex-1">{p.name}</span>
+            <span className="font-bold">{p.total} ({p.relative >= 0 ? "+" : ""}{p.relative})</span>
+          </div>
+        ))}
+      </motion.div>
+
+      <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: awards.length * 0.15 + 0.5 }}
+        className="text-center mt-8 p-6 bg-primary/5 rounded-2xl">
+        <p className="text-lg font-semibold">What a round, legends! ⛳</p>
+        <p className="text-sm text-muted-foreground mt-1">See you on the first tee next time!</p>
       </motion.div>
     </div>
   );
