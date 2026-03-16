@@ -33,7 +33,7 @@ export function PlayerSetup({
     if (!canSubmit) return;
 
     onComplete({
-      id: initialPlayer?.id || null,
+      id: initialPlayer?.id || "",
       name: name.trim(),
       emoji,
       handicap: handicap ? Number(handicap) : null,

@@ -171,42 +171,57 @@ export default function CreateTournament() {
   };
 
   const handleCreate = async () => {
-    // Create player entry for the TD
-    const tdPlayer = {
-      id: player.id || crypto.randomUUID(),
-      name: player.name,
-      emoji: player.emoji,
-      handicap: player.handicap,
-    };
+    try {
+      const res = await fetch("/api/tournaments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          course_name: courseName || "Nimetamata rada",
+          holes_count: holesCount,
+          hole_pars: holePars.slice(0, holesCount),
+          stroke_indices: strokeIndices?.slice(0, holesCount) || null,
+          use_flights: useFlights,
+          formats: selectedFormats,
+          settings: {
+            use_handicaps: useHandicaps,
+            max_strokes_mode: maxStrokesSetting.mode,
+            max_strokes_value: maxStrokesSetting.value ?? null,
+          },
+          player_id: player.id,
+          player_name: player.name,
+          player_emoji: player.emoji,
+          player_handicap: player.handicap,
+        }),
+      });
 
-    const tournament = {
-      id: crypto.randomUUID(),
-      name,
-      course_name: courseName || "Nimetamata rada",
-      holes_count: holesCount,
-      hole_pars: holePars.slice(0, holesCount),
-      stroke_indices: strokeIndices?.slice(0, holesCount) || null,
-      use_flights: useFlights,
-      share_code: generateShareCode(),
-      status: "setup" as const,
-      formats: selectedFormats,
-      players: [tdPlayer], // TD is first player
-      settings: {
-        use_handicaps: useHandicaps,
-        max_strokes_mode: maxStrokesSetting.mode,
-        max_strokes_value: maxStrokesSetting.value ?? null,
-      },
-      created_by: tdPlayer.id,
-      created_at: new Date().toISOString(),
-    };
+      const data = await res.json();
+      if (!res.ok || !data.tournament) {
+        throw new Error(data.error || "Turniiri loomine ebaõnnestus");
+      }
 
-    localStorage.setItem(
-      `hakklihamasin-tournament-${tournament.id}`,
-      JSON.stringify(tournament)
-    );
-    localStorage.setItem("hakklihamasin-active-tournament", tournament.id);
-
-    router.push(`/tournament/${tournament.id}`);
+      router.push(`/tournament/${data.tournament.id}`);
+    } catch (err) {
+      console.error("Create failed:", err);
+      // Fallback: localStorage
+      const fallbackId = crypto.randomUUID();
+      const tournament = {
+        id: fallbackId,
+        name,
+        course_name: courseName || "Nimetamata rada",
+        holes_count: holesCount,
+        hole_pars: holePars.slice(0, holesCount),
+        formats: selectedFormats,
+        players: [{ id: player.id, name: player.name, emoji: player.emoji, handicap: player.handicap }],
+        settings: { use_handicaps: useHandicaps, max_strokes_mode: maxStrokesSetting.mode, max_strokes_value: maxStrokesSetting.value ?? null },
+        share_code: generateShareCode(),
+        status: "setup" as const,
+        created_by: player.id,
+        created_at: new Date().toISOString(),
+      };
+      localStorage.setItem(`hakklihamasin-tournament-${fallbackId}`, JSON.stringify(tournament));
+      router.push(`/tournament/${fallbackId}`);
+    }
   };
 
   const totalPar = holePars.slice(0, holesCount).reduce((a, b) => a + b, 0);

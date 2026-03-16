@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 
 export interface LocalPlayer {
-  id: string | null;
+  id: string;
   name: string;
   emoji: string;
   handicap: number | null;
@@ -12,7 +12,7 @@ export interface LocalPlayer {
 const STORAGE_KEY = "hakklihamasin-player";
 
 const DEFAULT_PLAYER: LocalPlayer = {
-  id: null,
+  id: "",
   name: "",
   emoji: "🏌️",
   handicap: null,
@@ -22,11 +22,22 @@ function loadPlayer(): LocalPlayer {
   if (typeof window === "undefined") return DEFAULT_PLAYER;
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) return JSON.parse(stored);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      // Ensure id exists (generate if missing from old version)
+      if (!parsed.id) {
+        parsed.id = crypto.randomUUID();
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+      }
+      return parsed;
+    }
   } catch {
     // ignore
   }
-  return DEFAULT_PLAYER;
+  // First visit — generate a persistent UUID
+  const newPlayer = { ...DEFAULT_PLAYER, id: crypto.randomUUID() };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(newPlayer));
+  return newPlayer;
 }
 
 export function usePlayer() {
@@ -39,9 +50,13 @@ export function usePlayer() {
   }, []);
 
   const savePlayer = useCallback((updated: LocalPlayer) => {
+    // Ensure id persists
+    if (!updated.id) {
+      updated.id = player.id || crypto.randomUUID();
+    }
     setPlayer(updated);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-  }, []);
+  }, [player.id]);
 
   const updatePlayer = useCallback(
     (partial: Partial<LocalPlayer>) => {
@@ -51,7 +66,7 @@ export function usePlayer() {
     [player, savePlayer]
   );
 
-  const isSetUp = isLoaded && !!player.name && !!player.emoji;
+  const isSetUp = isLoaded && !!player.name && !!player.emoji && player.name.length >= 2;
 
   return { player, isLoaded, isSetUp, savePlayer, updatePlayer };
 }

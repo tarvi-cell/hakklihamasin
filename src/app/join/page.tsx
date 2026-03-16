@@ -68,26 +68,33 @@ export default function JoinTournament() {
   };
 
   const handleJoin = async (shareCode: string) => {
-    // TODO: Look up tournament in Supabase by share_code
-    // For now, check localStorage
-    const keys = Object.keys(localStorage).filter((k) =>
-      k.startsWith("hakklihamasin-tournament-")
-    );
+    try {
+      const playerData = JSON.parse(
+        localStorage.getItem("hakklihamasin-player") || "{}"
+      );
 
-    for (const key of keys) {
-      try {
-        const t = JSON.parse(localStorage.getItem(key)!);
-        if (t.share_code === shareCode) {
-          localStorage.setItem("hakklihamasin-active-tournament", t.id);
-          router.push(`/tournament/${t.id}`);
-          return;
-        }
-      } catch {
-        // ignore
+      const res = await fetch("/api/tournaments/join", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          share_code: shareCode,
+          player_id: playerData.id || crypto.randomUUID(),
+          name: playerData.name || "Mängija",
+          emoji: playerData.emoji || "🏌️",
+          handicap: playerData.handicap ?? null,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Liitumine ebaõnnestus");
+        return;
       }
-    }
 
-    setError("Sellist koodi ei leitud");
+      router.push(`/tournament/${data.tournament_id}`);
+    } catch {
+      setError("Ühenduse viga. Proovi uuesti.");
+    }
   };
 
   const fullCode = code.join("");
