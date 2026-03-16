@@ -1,20 +1,30 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useRef, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export default function JoinTournament() {
+function JoinInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [code, setCode] = useState(["", "", "", ""]);
   const [error, setError] = useState("");
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
+  // Auto-fill code from URL ?code=XXXX
   useEffect(() => {
-    inputRefs.current[0]?.focus();
-  }, []);
+    const urlCode = searchParams.get("code");
+    if (urlCode && urlCode.length === 4) {
+      const chars = urlCode.toUpperCase().split("");
+      setCode(chars);
+      // Auto-join
+      handleJoin(chars.join(""));
+    } else {
+      inputRefs.current[0]?.focus();
+    }
+  }, [searchParams]);
 
   const handleInput = (index: number, value: string) => {
     const char = value.toUpperCase().slice(-1);
@@ -165,5 +175,13 @@ export default function JoinTournament() {
         </motion.div>
       </div>
     </div>
+  );
+}
+
+export default function JoinTournament() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-dvh"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>}>
+      <JoinInner />
+    </Suspense>
   );
 }

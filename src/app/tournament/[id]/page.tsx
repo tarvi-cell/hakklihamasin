@@ -70,7 +70,8 @@ export default function TournamentHub({ params }: { params: Promise<{ id: string
     if (navigator.share) {
       await navigator.share({
         title: tournament.name,
-        text: `Liitu golfiturniiri "${tournament.name}" — kood: ${tournament.share_code}`,
+        text: `Liitu golfiturniiri "${tournament.name}" — kood: ${tournament.share_code}\n\n${window.location.origin}/join?code=${tournament.share_code}`,
+        url: `${window.location.origin}/join?code=${tournament.share_code}`,
       });
     } else {
       copyCode();
