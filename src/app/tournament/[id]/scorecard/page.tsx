@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, use } from "react";
+import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, WifiOff, Loader2 } from "lucide-react";
 import { HoleCard } from "@/components/scorecard/HoleCard";
@@ -13,15 +14,23 @@ import {
 import { getRandomMessage } from "@/lib/messages/templates";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Suspense } from "react";
 import { usePlayer } from "@/hooks/usePlayer";
 import { useTournament } from "@/hooks/useTournament";
 import { useScores } from "@/hooks/useScores";
 
-export default function ScorecardPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+function ScorecardInner({ id }: { id: string }) {
+  const searchParams = useSearchParams();
+  const roundId = searchParams.get("round") || undefined;
   const { player } = usePlayer();
-  const { tournament, players, isLoading: tLoading } = useTournament(id);
-  const { scores, setScore, getScore, isOnline, pendingCount, isLoading: sLoading } = useScores(id);
+  const { tournament, players, rounds, isLoading: tLoading } = useTournament(id);
+  const { scores, setScore, getScore, isOnline, pendingCount, isLoading: sLoading } = useScores(id, roundId);
+
+  // Find the active round's data (course, pars, formats)
+  const activeRound = roundId ? rounds.find((r) => r.id === roundId) : null;
+  const holePars = activeRound?.hole_pars || tournament?.hole_pars || [];
+  const holesCount = activeRound?.holes_count || tournament?.holes_count || 18;
+  const roundName = activeRound?.name || tournament?.name || "";
   const [currentHole, setCurrentHole] = useState(1);
   const [activePlayerId, setActivePlayerId] = useState<string>("");
   const [direction, setDirection] = useState(0);
@@ -43,8 +52,8 @@ export default function ScorecardPage({ params }: { params: Promise<{ id: string
 
   if (!tournament) return null;
 
-  const isCompleted = tournament.status === "completed";
-  const currentPar = tournament.hole_pars[currentHole - 1];
+  const isCompleted = tournament.status === "completed" || activeRound?.status === "completed";
+  const currentPar = holePars[currentHole - 1];
   const activePlayerScore = getScore(activePlayerId, currentHole);
 
   // Max strokes
@@ -61,7 +70,7 @@ export default function ScorecardPage({ params }: { params: Promise<{ id: string
       .filter((s) => s.player_id === playerId)
       .map((s) => ({
         strokes: s.strokes,
-        par: tournament.hole_pars[s.hole_number - 1],
+        par: holePars[s.hole_number - 1],
       }));
     return {
       totalRelative: formatTotalRelativeScore(playerScores),
@@ -80,7 +89,7 @@ export default function ScorecardPage({ params }: { params: Promise<{ id: string
       setScore(activePlayerId, holeNumber, strokes, player.id);
 
       // Fun messages
-      const par = tournament.hole_pars[holeNumber - 1];
+      const par = holePars[holeNumber - 1];
       const scoreName = getScoreName(strokes, par);
       const playerName = activePlayer?.name || "Mängija";
 
@@ -98,7 +107,7 @@ export default function ScorecardPage({ params }: { params: Promise<{ id: string
       const playerIndex = players.findIndex((p) => p.id === activePlayerId);
       if (playerIndex < players.length - 1) {
         setTimeout(() => setActivePlayerId(players[playerIndex + 1].id), 400);
-      } else if (holeNumber < tournament.holes_count) {
+      } else if (holeNumber < holesCount) {
         setTimeout(() => {
           setDirection(1);
           setCurrentHole(holeNumber + 1);
@@ -110,7 +119,7 @@ export default function ScorecardPage({ params }: { params: Promise<{ id: string
   );
 
   const goToHole = (hole: number) => {
-    if (hole < 1 || hole > tournament.holes_count) return;
+    if (hole < 1 || hole > holesCount) return;
     setDirection(hole > currentHole ? 1 : -1);
     setCurrentHole(hole);
   };
@@ -141,7 +150,7 @@ export default function ScorecardPage({ params }: { params: Promise<{ id: string
       <div className="bg-primary text-primary-foreground px-4 py-3 safe-area-top">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="font-semibold text-xs opacity-70">{tournament.name}</h2>
+            <h2 className="font-semibold text-xs opacity-70">{roundName || tournament.name}</h2>
             <div className="flex items-center gap-2 mt-0.5">
               <span className="text-2xl font-bold">{activeStats.totalRelative}</span>
               <span className="text-xs opacity-60">
@@ -150,9 +159,9 @@ export default function ScorecardPage({ params }: { params: Promise<{ id: string
             </div>
           </div>
           <div className="flex flex-wrap gap-1 max-w-[120px] justify-end">
-            {Array.from({ length: tournament.holes_count }, (_, i) => {
+            {Array.from({ length: holesCount }, (_, i) => {
               const s = getScore(activePlayerId, i + 1);
-              const par = tournament.hole_pars[i];
+              const par = holePars[i];
               let dotColor = "bg-white/20";
               if (s !== null) {
                 const diff = s - par;
@@ -210,7 +219,7 @@ export default function ScorecardPage({ params }: { params: Promise<{ id: string
             </motion.div>
           </AnimatePresence>
         </div>
-        <button onClick={() => goToHole(currentHole + 1)} disabled={currentHole === tournament.holes_count}
+        <button onClick={() => goToHole(currentHole + 1)} disabled={currentHole === holesCount}
           className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-20 transition-colors">
           <ChevronRight className="w-7 h-7" />
         </button>
@@ -237,9 +246,18 @@ export default function ScorecardPage({ params }: { params: Promise<{ id: string
       )}
 
       <div className="text-center pb-2 text-xs text-muted-foreground">
-        Auk {currentHole} / {tournament.holes_count}
+        Auk {currentHole} / {holesCount}
         {players.length > 1 && <span className="ml-2">— {activePlayer?.name}</span>}
       </div>
     </div>
+  );
+}
+
+export default function ScorecardPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>}>
+      <ScorecardInner id={id} />
+    </Suspense>
   );
 }

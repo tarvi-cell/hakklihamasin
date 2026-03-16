@@ -32,7 +32,7 @@ export default function TournamentHub({ params }: { params: Promise<{ id: string
   const { id } = use(params);
   const router = useRouter();
   const { player } = usePlayer();
-  const { tournament, players, isLoading, addPlayer, removePlayer, updateStatus } = useTournament(id);
+  const { tournament, players, rounds, activeRound, isLoading, addPlayer, removePlayer, updateStatus, updateRound } = useTournament(id);
   const [copied, setCopied] = useState(false);
   const [showAddPlayer, setShowAddPlayer] = useState(false);
   const [newPlayerName, setNewPlayerName] = useState("");
@@ -91,7 +91,16 @@ export default function TournamentHub({ params }: { params: Promise<{ id: string
   };
 
   const handleComplete = async () => {
-    await updateStatus("completed");
+    if (activeRound) {
+      await updateRound(activeRound.id, { status: "completed" });
+    }
+    // If all rounds completed, complete tournament too
+    const allDone = rounds.every((r) =>
+      r.id === activeRound?.id ? true : r.status === "completed"
+    );
+    if (allDone) {
+      await updateStatus("completed");
+    }
     setShowCompleteDialog(false);
     router.push(`/tournament/${id}/leaderboard`);
   };
@@ -188,31 +197,91 @@ export default function TournamentHub({ params }: { params: Promise<{ id: string
           </Card>
         </motion.div>
 
-        {/* Formats */}
+        {/* Rounds */}
         <motion.div initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }}>
           <Card>
             <CardContent className="p-4">
-              <h3 className="font-semibold mb-2">Formaadid</h3>
-              <div className="flex flex-wrap gap-2">
-                {(tournament.formats || []).map((f: string) => (
-                  <Badge key={f} variant="outline">{FORMAT_NAMES[f] || f}</Badge>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold">Ringid</h3>
+                <Badge variant="secondary" className="text-xs">{rounds.length} ringi</Badge>
+              </div>
+
+              {rounds.length === 0 && (
+                <p className="text-sm text-muted-foreground py-2">
+                  Pole veel ringe. {isTD ? "Lisa esimene ring!" : "TD lisab ringi."}
+                </p>
+              )}
+
+              <div className="space-y-2">
+                {rounds.map((r) => (
+                  <div
+                    key={r.id}
+                    className="flex items-center gap-3 p-3 bg-muted/30 rounded-xl cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => {
+                      if (r.status === "active") {
+                        router.push(`/tournament/${id}/scorecard?round=${r.id}`);
+                      } else if (r.status === "completed") {
+                        router.push(`/tournament/${id}/leaderboard?round=${r.id}`);
+                      }
+                    }}
+                  >
+                    <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10 text-primary font-bold text-sm">
+                      {r.round_number}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm truncate">
+                        {r.name || `Ring ${r.round_number}`}
+                      </div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {r.course_name || "Nimetamata"} — {r.holes_count} auku, par{" "}
+                        {r.hole_pars.reduce((a: number, b: number) => a + b, 0)}
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      <Badge
+                        variant={r.status === "active" ? "default" : r.status === "completed" ? "secondary" : "outline"}
+                        className="text-[10px]"
+                      >
+                        {r.status === "setup" ? "Seadistamine" : r.status === "active" ? "Käimas" : "Lõppenud"}
+                      </Badge>
+                      <div className="flex flex-wrap gap-1">
+                        {(r.formats || []).slice(0, 2).map((f: string) => (
+                          <span key={f} className="text-[9px] text-muted-foreground">
+                            {FORMAT_NAMES[f] || f}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 ))}
               </div>
+
+              {/* Add round button */}
+              {isTD && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push(`/tournament/${id}/add-round`)}
+                  className="w-full mt-3 h-10 border-dashed"
+                >
+                  <Plus className="w-4 h-4 mr-1" /> Lisa ring
+                </Button>
+              )}
             </CardContent>
           </Card>
         </motion.div>
 
-        {/* Action buttons */}
-        {tournament.status === "setup" && isTD && (
-          <Button onClick={handleStart} className="w-full h-14 text-lg font-semibold" size="lg">
-            <Play className="w-5 h-5 mr-2" /> Alusta ringi ({players.length} mängijat)
+        {/* Quick actions */}
+        {rounds.length === 0 && isTD && (
+          <Button onClick={() => router.push(`/tournament/${id}/add-round`)} className="w-full h-14 text-lg font-semibold" size="lg">
+            <Plus className="w-5 h-5 mr-2" /> Lisa esimene ring
           </Button>
         )}
 
-        {tournament.status === "active" && (
+        {activeRound && activeRound.status === "active" && (
           <div className="space-y-3">
-            <Button onClick={() => router.push(`/tournament/${id}/scorecard`)} className="w-full h-14 text-lg font-semibold" size="lg">
-              <ClipboardList className="w-5 h-5 mr-2" /> Jätka mängimist
+            <Button onClick={() => router.push(`/tournament/${id}/scorecard?round=${activeRound.id}`)} className="w-full h-14 text-lg font-semibold" size="lg">
+              <ClipboardList className="w-5 h-5 mr-2" /> Jätka mängimist — {activeRound.name || `Ring ${activeRound.round_number}`}
             </Button>
             {isTD && (
               <Button variant="outline" onClick={() => setShowCompleteDialog(true)} className="w-full h-11 text-destructive border-destructive/30">
@@ -222,10 +291,17 @@ export default function TournamentHub({ params }: { params: Promise<{ id: string
           </div>
         )}
 
-        {tournament.status === "completed" && (
-          <Button onClick={() => router.push(`/tournament/${id}/leaderboard`)} className="w-full h-14 text-lg font-semibold" size="lg">
-            Vaata tulemusi 🏆
-          </Button>
+        {rounds.length > 0 && rounds.every((r) => r.status === "completed") && (
+          <div className="space-y-3">
+            <Button onClick={() => router.push(`/tournament/${id}/leaderboard`)} className="w-full h-14 text-lg font-semibold" size="lg">
+              Vaata tulemusi 🏆
+            </Button>
+            {isTD && (
+              <Button variant="outline" onClick={() => router.push(`/tournament/${id}/add-round`)} className="w-full h-11">
+                <Plus className="w-4 h-4 mr-2" /> Lisa järgmine ring
+              </Button>
+            )}
+          </div>
         )}
       </div>
 

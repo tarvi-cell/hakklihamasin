@@ -27,19 +27,43 @@ export interface TournamentPlayerData {
   flight: string | null;
 }
 
+export interface RoundData {
+  id: string;
+  tournament_id: string;
+  round_number: number;
+  name: string | null;
+  status: "setup" | "active" | "completed";
+  course_name: string | null;
+  holes_count: number;
+  hole_pars: number[];
+  stroke_indices: number[] | null;
+  formats: string[];
+  settings: Record<string, unknown>;
+  created_at: string;
+}
+
 export function useTournament(tournamentId: string) {
   const [tournament, setTournament] = useState<TournamentData | null>(null);
   const [players, setPlayers] = useState<TournamentPlayerData[]>([]);
+  const [rounds, setRounds] = useState<RoundData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchTournament = useCallback(async () => {
     try {
-      const res = await fetch(`/api/tournaments/${tournamentId}`);
-      if (!res.ok) throw new Error("Turniiri ei leitud");
-      const data = await res.json();
-      setTournament(data.tournament);
-      setPlayers(data.players || []);
+      const [tRes, rRes] = await Promise.all([
+        fetch(`/api/tournaments/${tournamentId}`),
+        fetch(`/api/tournaments/${tournamentId}/rounds`),
+      ]);
+      if (!tRes.ok) throw new Error("Turniiri ei leitud");
+      const tData = await tRes.json();
+      setTournament(tData.tournament);
+      setPlayers(tData.players || []);
+
+      if (rRes.ok) {
+        const rData = await rRes.json();
+        setRounds(rData.rounds || []);
+      }
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Viga");
@@ -104,14 +128,62 @@ export function useTournament(tournamentId: string) {
     [tournamentId]
   );
 
+  const addRound = useCallback(
+    async (roundData: {
+      round_number: number;
+      name?: string;
+      course_name?: string;
+      holes_count?: number;
+      hole_pars: number[];
+      stroke_indices?: number[] | null;
+      formats?: string[];
+      settings?: Record<string, unknown>;
+    }) => {
+      const res = await fetch(`/api/tournaments/${tournamentId}/rounds`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(roundData),
+      });
+      if (res.ok) {
+        await fetchTournament();
+        const data = await res.json();
+        return data.round;
+      }
+      return null;
+    },
+    [tournamentId, fetchTournament]
+  );
+
+  const updateRound = useCallback(
+    async (roundId: string, data: Record<string, unknown>) => {
+      const res = await fetch(
+        `/api/tournaments/${tournamentId}/rounds/${roundId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        }
+      );
+      if (res.ok) await fetchTournament();
+    },
+    [tournamentId, fetchTournament]
+  );
+
+  // Active round = the one currently being played (or latest)
+  const activeRound = rounds.find((r) => r.status === "active") || rounds[rounds.length - 1] || null;
+
   return {
     tournament,
     players,
+    rounds,
+    activeRound,
     isLoading,
     error,
     addPlayer,
     removePlayer,
     updateStatus,
+    addRound,
+    updateRound,
     refresh: fetchTournament,
   };
 }

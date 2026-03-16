@@ -12,7 +12,7 @@ export interface ScoreEntry {
 
 const QUEUE_KEY = "hakklihamasin-offline-queue";
 
-export function useScores(tournamentId: string) {
+export function useScores(tournamentId: string, roundId?: string | null) {
   const [scores, setScores] = useState<ScoreEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(
@@ -21,10 +21,13 @@ export function useScores(tournamentId: string) {
   const [pendingCount, setPendingCount] = useState(0);
   const pollRef = useRef<NodeJS.Timeout>(null);
 
-  // Fetch all scores
+  // Fetch scores (optionally filtered by round)
   const fetchScores = useCallback(async () => {
     try {
-      const res = await fetch(`/api/tournaments/${tournamentId}/scores`);
+      const url = roundId
+        ? `/api/tournaments/${tournamentId}/scores?round_id=${roundId}`
+        : `/api/tournaments/${tournamentId}/scores`;
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         setScores(data.scores || []);
@@ -87,12 +90,13 @@ export function useScores(tournamentId: string) {
       strokes: number,
       enteredBy?: string
     ) => {
-      const entry: ScoreEntry = {
+      const entry: ScoreEntry & { round_id?: string } = {
         player_id: playerId,
         hole_number: holeNumber,
         strokes,
         entered_by: enteredBy || playerId,
         sync_id: crypto.randomUUID(),
+        ...(roundId ? { round_id: roundId } : {}),
       };
 
       // Optimistic local update
