@@ -1,9 +1,17 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MapPin, Loader2, Navigation, X, Database, Globe } from "lucide-react";
+import {
+  MapPin,
+  Loader2,
+  Navigation,
+  X,
+  Search,
+  Check,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -13,133 +21,194 @@ import {
 } from "@/lib/courses/course-finder";
 import {
   findNearbyEstonianCourses,
-  type EstonianCourse,
+  ESTONIAN_COURSES,
 } from "@/lib/courses/estonian-courses";
-
-// Unified course type for the UI
-interface CourseOption {
-  id: string;
-  name: string;
-  city?: string;
-  holesCount: 9 | 18 | null;
-  totalPar: number | null;
-  hasHoleData: boolean;
-  distance: number;
-  source: "local" | "osm";
-  // Original data for selection
-  localCourse?: EstonianCourse;
-  osmCourse?: FoundCourse;
-}
+import type { ParsedCourse } from "@/lib/courses/course-api";
 
 interface CourseSearchProps {
   onSelect: (course: FoundCourse) => void;
 }
 
 export function CourseSearch({ onSelect }: CourseSearchProps) {
-  const [status, setStatus] = useState<
-    "idle" | "locating" | "searching" | "results" | "error"
-  >("idle");
-  const [courses, setCourses] = useState<CourseOption[]>([]);
+  const [searchText, setSearchText] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
+  const [results, setResults] = useState<CourseOption[]>([]);
+  const [hasSearched, setHasSearched] = useState(false);
   const [error, setError] = useState("");
+  const debounceRef = useRef<NodeJS.Timeout>(null);
 
-  const handleSearch = useCallback(async () => {
+  // Debounced name search
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (searchText.length < 2) {
+      setResults([]);
+      setHasSearched(false);
+      return;
+    }
+
+    debounceRef.current = setTimeout(() => {
+      performNameSearch(searchText);
+    }, 400);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [searchText]);
+
+  const performNameSearch = async (query: string) => {
+    setIsSearching(true);
+    setError("");
+    setHasSearched(true);
+
+    const allResults: CourseOption[] = [];
+
+    // 1. Search Estonian hardcoded courses by name
+    const estonianMatches = ESTONIAN_COURSES.filter(
+      (c) =>
+        c.name.toLowerCase().includes(query.toLowerCase()) ||
+        c.city.toLowerCase().includes(query.toLowerCase())
+    ).map(
+      (c): CourseOption => ({
+        id: `ee-${c.name}`,
+        name: c.name,
+        city: c.city,
+        country: "Estonia",
+        holesCount: c.holesCount,
+        totalPar: c.par,
+        hasHoleData: c.holes.length > 0,
+        source: "local",
+        localCourse: c,
+      })
+    );
+    allResults.push(...estonianMatches);
+
+    // 2. Search GolfCourseAPI
     try {
-      setStatus("locating");
+      const res = await fetch(
+        `/api/courses/search?q=${encodeURIComponent(query)}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const apiCourses: ParsedCourse[] = data.courses || [];
+        apiCourses.forEach((c) => {
+          // Skip if already in Estonian results
+          if (
+            allResults.some(
+              (r) =>
+                r.name.toLowerCase().includes(c.name.toLowerCase().slice(0, 8))
+            )
+          )
+            return;
+
+          allResults.push({
+            id: c.id,
+            name: c.name,
+            city: c.city,
+            country: c.country,
+            holesCount: c.holesCount,
+            totalPar: c.totalPar,
+            hasHoleData: c.holes.length > 0,
+            source: "api",
+            apiCourse: c,
+          });
+        });
+      }
+    } catch {
+      // API not available — that's ok, we still have local results
+    }
+
+    setResults(allResults);
+    setIsSearching(false);
+  };
+
+  // GPS search
+  const handleGpsSearch = useCallback(async () => {
+    try {
+      setIsLocating(true);
       setError("");
+      setHasSearched(true);
 
       const position = await requestGeolocation();
       const { latitude, longitude } = position.coords;
 
-      setStatus("searching");
+      const allResults: CourseOption[] = [];
 
-      // 1. First: local Estonian courses (instant, always works)
-      const estonianResults = findNearbyEstonianCourses(
-        latitude,
-        longitude,
-        150
-      ).map(
-        (c): CourseOption => ({
-          id: `local-${c.name}`,
+      // Estonian courses by distance
+      const nearby = findNearbyEstonianCourses(latitude, longitude, 200);
+      nearby.forEach((c) => {
+        allResults.push({
+          id: `ee-${c.name}`,
           name: c.name,
           city: c.city,
+          country: "Estonia",
           holesCount: c.holesCount,
           totalPar: c.par,
           hasHoleData: c.holes.length > 0,
           distance: c.distance,
           source: "local",
           localCourse: c,
-        })
-      );
+        });
+      });
 
-      // 2. Then: Overpass API (slower, may fail)
-      let osmResults: CourseOption[] = [];
+      // Overpass API
       try {
-        const osmCourses = await findNearbyCourses(
-          latitude,
-          longitude,
-          80000
-        );
-        osmResults = osmCourses
-          .filter(
-            (c) =>
-              // Don't duplicate courses that are already in local list
-              !estonianResults.some(
-                (e) =>
-                  e.name.toLowerCase().includes(c.name.toLowerCase().slice(0, 8)) ||
-                  c.name.toLowerCase().includes(e.name.toLowerCase().slice(0, 8))
-              )
+        const osmCourses = await findNearbyCourses(latitude, longitude, 80000);
+        osmCourses.forEach((c) => {
+          if (
+            allResults.some(
+              (r) =>
+                r.name
+                  .toLowerCase()
+                  .includes(c.name.toLowerCase().slice(0, 6)) ||
+                c.name
+                  .toLowerCase()
+                  .includes(r.name.toLowerCase().slice(0, 6))
+            )
           )
-          .map(
-            (c): CourseOption => ({
-              id: `osm-${c.id}`,
-              name: c.name,
-              city: c.city,
-              holesCount: c.holesCount,
-              totalPar: c.totalPar,
-              hasHoleData: c.holes.length > 0,
-              distance: c.distance / 1000, // convert m to km
-              source: "osm",
-              osmCourse: c,
-            })
-          );
+            return;
+
+          allResults.push({
+            id: `osm-${c.id}`,
+            name: c.name,
+            city: c.city,
+            country: undefined,
+            holesCount: c.holesCount,
+            totalPar: c.totalPar,
+            hasHoleData: c.holes.length > 0,
+            distance: c.distance / 1000,
+            source: "osm",
+            osmCourse: c,
+          });
+        });
       } catch {
-        // OSM failed — that's fine, we still have local courses
+        // Overpass failed — that's fine
       }
 
-      // Merge and sort by distance
-      const merged = [...estonianResults, ...osmResults].sort(
-        (a, b) => a.distance - b.distance
-      );
+      allResults.sort((a, b) => (a.distance ?? 999) - (b.distance ?? 999));
+      setResults(allResults);
 
-      setCourses(merged);
-      setStatus("results");
-
-      if (merged.length === 0) {
-        setError("Ei leidnud läheduses golfirada.");
+      if (allResults.length === 0) {
+        setError("Ei leidnud läheduses radasid. Proovi nime järgi otsida.");
       }
     } catch (err) {
-      setStatus("error");
       if (err instanceof GeolocationPositionError) {
-        switch (err.code) {
-          case err.PERMISSION_DENIED:
-            setError("Asukoha luba keelatud. Luba see brauseri seadetes.");
-            break;
-          case err.POSITION_UNAVAILABLE:
-            setError("Asukoht pole kättesaadav.");
-            break;
-          case err.TIMEOUT:
-            setError("Asukoha päring aegus. Proovi uuesti.");
-            break;
-        }
+        setError(
+          err.code === err.PERMISSION_DENIED
+            ? "Asukoha luba keelatud."
+            : "Asukoht pole kättesaadav."
+        );
       } else {
-        setError("Otsing ebaõnnestus.");
+        setError("GPS otsing ebaõnnestus.");
       }
+    } finally {
+      setIsLocating(false);
     }
   }, []);
 
   const handleSelect = (course: CourseOption) => {
     if (course.localCourse) {
-      // Convert local Estonian course to FoundCourse format
       const c = course.localCourse;
       onSelect({
         id: 0,
@@ -150,127 +219,167 @@ export function CourseSearch({ onSelect }: CourseSearchProps) {
         holes: c.holes.map((h) => ({ number: h.number, par: h.par })),
         lat: c.lat,
         lng: c.lng,
-        distance: course.distance * 1000,
+        distance: (course.distance ?? 0) * 1000,
+      });
+    } else if (course.apiCourse) {
+      const c = course.apiCourse;
+      onSelect({
+        id: Number(c.id.replace("api-", "")),
+        name: c.name,
+        city: c.city,
+        holesCount: c.holesCount,
+        totalPar: c.totalPar,
+        holes: c.holes.map((h) => ({
+          number: h.number,
+          par: h.par,
+          si: h.si,
+        })),
+        lat: c.lat ?? 0,
+        lng: c.lng ?? 0,
+        distance: 0,
       });
     } else if (course.osmCourse) {
       onSelect(course.osmCourse);
     }
+
+    // Clear search
+    setSearchText("");
+    setResults([]);
+    setHasSearched(false);
   };
 
   return (
     <div className="space-y-3">
-      {status === "idle" && (
-        <Button
-          variant="outline"
-          onClick={handleSearch}
-          className="w-full h-11 gap-2"
-        >
-          <Navigation className="w-4 h-4" />
-          Leia rada GPS-iga
-        </Button>
-      )}
+      {/* Name search input */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          placeholder="Otsi raja nime järgi..."
+          className="pl-9 pr-10 h-12 rounded-xl bg-card text-base"
+        />
+        {isSearching && (
+          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
+        )}
+        {searchText && !isSearching && (
+          <button
+            onClick={() => {
+              setSearchText("");
+              setResults([]);
+              setHasSearched(false);
+            }}
+            className="absolute right-3 top-1/2 -translate-y-1/2"
+          >
+            <X className="w-4 h-4 text-muted-foreground" />
+          </button>
+        )}
+      </div>
 
-      {(status === "locating" || status === "searching") && (
-        <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground">
+      {/* GPS button */}
+      <Button
+        variant="outline"
+        onClick={handleGpsSearch}
+        disabled={isLocating}
+        className="w-full h-10 gap-2 rounded-xl"
+      >
+        {isLocating ? (
           <Loader2 className="w-4 h-4 animate-spin" />
-          <span className="text-sm">
-            {status === "locating"
-              ? "Otsin asukohta..."
-              : "Otsin lähimaid radu..."}
-          </span>
-        </div>
+        ) : (
+          <Navigation className="w-4 h-4" />
+        )}
+        {isLocating ? "Otsin asukohta..." : "Leia rada GPS-iga"}
+      </Button>
+
+      {/* Error */}
+      {error && (
+        <p className="text-sm text-destructive text-center">{error}</p>
       )}
 
-      {status === "error" && (
-        <div className="text-center py-3">
-          <p className="text-sm text-destructive mb-2">{error}</p>
-          <Button variant="outline" size="sm" onClick={handleSearch}>
-            Proovi uuesti
-          </Button>
-        </div>
-      )}
-
-      {status === "results" && courses.length > 0 && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              Leitud {courses.length} rada
-            </p>
-            <button
-              onClick={() => { setStatus("idle"); setCourses([]); }}
-              className="text-xs text-muted-foreground hover:text-foreground"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          <div className="max-h-[320px] overflow-y-auto space-y-2 pr-1">
-            <AnimatePresence>
-              {courses.map((course, i) => (
-                <motion.div
-                  key={course.id}
-                  initial={{ y: 8, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: i * 0.04 }}
+      {/* Results */}
+      {results.length > 0 && (
+        <div className="max-h-[320px] overflow-y-auto space-y-2 pr-1">
+          <AnimatePresence>
+            {results.map((course, i) => (
+              <motion.div
+                key={course.id}
+                initial={{ y: 8, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: i * 0.03 }}
+              >
+                <Card
+                  className="cursor-pointer hover:border-primary/50 active:scale-[0.98] transition-all"
+                  onClick={() => handleSelect(course)}
                 >
-                  <Card
-                    className="cursor-pointer hover:border-primary/50 active:scale-[0.98] transition-all"
-                    onClick={() => handleSelect(course)}
-                  >
-                    <CardContent className="p-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <h4 className="font-semibold text-sm truncate">
-                            {course.name}
-                          </h4>
-                          <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
-                            {course.city && <span>{course.city}</span>}
+                  <CardContent className="p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <h4 className="font-semibold text-sm truncate">
+                          {course.name}
+                        </h4>
+                        <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
+                          {course.city && <span>{course.city}</span>}
+                          {course.country && <span>{course.country}</span>}
+                          {course.distance != null && (
                             <span className="flex items-center gap-0.5">
                               <MapPin className="w-3 h-3" />
-                              {course.distance < 1
-                                ? `${Math.round(course.distance * 1000)} m`
-                                : `${course.distance.toFixed(1)} km`}
+                              {course.distance.toFixed(0)} km
                             </span>
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-1 shrink-0">
-                          {course.holesCount && (
-                            <Badge variant="outline" className="text-[10px]">
-                              {course.holesCount} auku
-                            </Badge>
-                          )}
-                          {course.totalPar && (
-                            <Badge variant="secondary" className="text-[10px]">
-                              Par {course.totalPar}
-                            </Badge>
-                          )}
-                          {course.hasHoleData && (
-                            <Badge
-                              variant="default"
-                              className="text-[10px] bg-birdie"
-                            >
-                              Parid olemas
-                            </Badge>
                           )}
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </div>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        {course.holesCount && (
+                          <Badge variant="outline" className="text-[10px]">
+                            {course.holesCount} auku
+                          </Badge>
+                        )}
+                        {course.totalPar && (
+                          <Badge variant="secondary" className="text-[10px]">
+                            Par {course.totalPar}
+                          </Badge>
+                        )}
+                        {course.hasHoleData && (
+                          <Badge
+                            variant="default"
+                            className="text-[10px] bg-birdie"
+                          >
+                            <Check className="w-2.5 h-2.5 mr-0.5" />
+                            Parid
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
       )}
 
-      {status === "results" && courses.length === 0 && (
-        <div className="text-center py-3">
-          <p className="text-sm text-muted-foreground">{error}</p>
-          <Button variant="outline" size="sm" onClick={handleSearch} className="mt-2">
-            Proovi uuesti
-          </Button>
-        </div>
+      {/* No results */}
+      {hasSearched && results.length === 0 && !isSearching && !isLocating && !error && (
+        <p className="text-sm text-muted-foreground text-center py-2">
+          Ei leidnud radasid. Proovi teist otsisõna.
+        </p>
       )}
     </div>
   );
+}
+
+// Internal type
+interface CourseOption {
+  id: string;
+  name: string;
+  city?: string;
+  country?: string;
+  holesCount: 9 | 18 | null;
+  totalPar: number | null;
+  hasHoleData: boolean;
+  distance?: number;
+  source: "local" | "api" | "osm";
+  localCourse?: import("@/lib/courses/estonian-courses").EstonianCourse;
+  apiCourse?: ParsedCourse;
+  osmCourse?: FoundCourse;
 }
