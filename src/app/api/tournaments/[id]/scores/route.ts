@@ -57,16 +57,45 @@ export async function POST(
       round_id: round_id || null,
     };
 
-    // Use round-based unique constraint if round_id exists
     const conflictTarget = round_id
       ? "round_id,player_id,hole_number"
-      : "tournament_id,player_id,hole_number";
+      : "idx_golf_scores_tournament_player_hole";
 
-    const { data, error } = await supabase
-      .from("golf_scores")
-      .upsert(scoreData, { onConflict: conflictTarget })
-      .select()
-      .single();
+    // For round-based scores, use the round constraint
+    // For legacy scores without round, use the partial index
+    let data, error;
+    if (round_id) {
+      ({ data, error } = await supabase
+        .from("golf_scores")
+        .upsert(scoreData, { onConflict: "round_id,player_id,hole_number" })
+        .select()
+        .single());
+    } else {
+      // Check if score exists, then update or insert
+      const { data: existing } = await supabase
+        .from("golf_scores")
+        .select("id")
+        .eq("tournament_id", tournamentId)
+        .eq("player_id", player_id)
+        .eq("hole_number", hole_number)
+        .is("round_id", null)
+        .maybeSingle();
+
+      if (existing) {
+        ({ data, error } = await supabase
+          .from("golf_scores")
+          .update({ strokes, entered_by: entered_by || player_id, sync_id: sync_id || null })
+          .eq("id", existing.id)
+          .select()
+          .single());
+      } else {
+        ({ data, error } = await supabase
+          .from("golf_scores")
+          .insert(scoreData)
+          .select()
+          .single());
+      }
+    }
 
     if (error) {
       results.push({ error: error.message, entry });
