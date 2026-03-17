@@ -24,9 +24,9 @@ export function useScores(tournamentId: string, roundId?: string | null) {
   // Fetch scores (optionally filtered by round)
   const fetchScores = useCallback(async () => {
     try {
-      const url = roundId
-        ? `/api/tournaments/${tournamentId}/scores?round_id=${roundId}`
-        : `/api/tournaments/${tournamentId}/scores`;
+      const params = new URLSearchParams();
+      if (roundId) params.set("round_id", roundId);
+      const url = `/api/tournaments/${tournamentId}/scores${params.toString() ? `?${params}` : ""}`;
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
@@ -46,7 +46,7 @@ export function useScores(tournamentId: string, roundId?: string | null) {
     } finally {
       setIsLoading(false);
     }
-  }, [tournamentId]);
+  }, [tournamentId, roundId]);
 
   // Initial fetch
   useEffect(() => {
@@ -76,10 +76,13 @@ export function useScores(tournamentId: string, roundId?: string | null) {
     };
   }, []);
 
-  // Load pending count
+  // Load pending count + flush queue on mount if online
   useEffect(() => {
     const queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]");
     setPendingCount(queue.length);
+    if (queue.length > 0 && navigator.onLine) {
+      processQueue();
+    }
   }, []);
 
   // Set a score (optimistic + API + queue)
@@ -148,7 +151,7 @@ export function useScores(tournamentId: string, roundId?: string | null) {
         JSON.stringify(cached)
       );
     },
-    [tournamentId]
+    [tournamentId, roundId]
   );
 
   // Offline queue

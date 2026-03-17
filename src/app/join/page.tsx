@@ -14,14 +14,38 @@ function JoinInner() {
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Auto-fill code from URL ?code=XXXX
+  const autoJoinDone = useRef(false);
   useEffect(() => {
     const urlCode = searchParams.get("code");
-    if (urlCode && urlCode.length === 4) {
+    if (urlCode && urlCode.length === 4 && !autoJoinDone.current) {
+      autoJoinDone.current = true;
       const chars = urlCode.toUpperCase().split("");
       setCode(chars);
-      // Auto-join
-      handleJoin(chars.join(""));
-    } else {
+      // Delayed join to avoid calling before function is defined
+      // Use async IIFE to handle join after state update
+      const shareCode = chars.join("");
+      (async () => {
+        try {
+          const playerData = JSON.parse(localStorage.getItem("hakklihamasin-player") || "{}");
+          const res = await fetch("/api/tournaments/join", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              share_code: shareCode,
+              player_id: playerData.id || crypto.randomUUID(),
+              name: playerData.name || "Mängija",
+              emoji: playerData.emoji || "🏌️",
+            }),
+          });
+          const data = await res.json();
+          if (res.ok && data.tournament_id) {
+            router.push(`/tournament/${data.tournament_id}`);
+          } else {
+            setError(data.error || "Liitumine ebaõnnestus");
+          }
+        } catch { setError("Ühenduse viga"); }
+      })();
+    } else if (!autoJoinDone.current) {
       inputRefs.current[0]?.focus();
     }
   }, [searchParams]);

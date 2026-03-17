@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, use } from "react";
+import { useState, useCallback, useEffect, use } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, WifiOff, Loader2 } from "lucide-react";
@@ -35,11 +35,18 @@ function ScorecardInner({ id }: { id: string }) {
   const [activePlayerId, setActivePlayerId] = useState<string>("");
   const [direction, setDirection] = useState(0);
 
-  // Set active player to self on first load
-  if (!activePlayerId && players.length > 0) {
-    const self = players.find((p) => p.id === player.id);
-    setActivePlayerId(self?.id || players[0].id);
-  }
+  // Set active player to self on first load (useEffect, not inline setState)
+  useEffect(() => {
+    if (!activePlayerId && players.length > 0) {
+      const self = players.find((p) => p.id === player.id);
+      setActivePlayerId(self?.id || players[0].id);
+    }
+  }, [activePlayerId, players, player.id]);
+
+  // All hooks above — conditional returns below
+  const isCompleted = tournament?.status === "completed" || activeRound?.status === "completed";
+  const currentPar = holePars[currentHole - 1] || 4;
+  const activePlayerScore = getScore(activePlayerId, currentHole);
 
   if (tLoading || sLoading) {
     return (
@@ -51,10 +58,6 @@ function ScorecardInner({ id }: { id: string }) {
   }
 
   if (!tournament) return null;
-
-  const isCompleted = tournament.status === "completed" || activeRound?.status === "completed";
-  const currentPar = holePars[currentHole - 1];
-  const activePlayerScore = getScore(activePlayerId, currentHole);
 
   // Max strokes
   const getMaxStrokes = (par: number): number => {
