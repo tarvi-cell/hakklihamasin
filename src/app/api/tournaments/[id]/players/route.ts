@@ -33,7 +33,7 @@ export async function POST(
     if (error.code === "23505") {
       return NextResponse.json({ error: "Mängija juba lisatud" }, { status: 409 });
     }
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Serveri viga" }, { status: 500 });
   }
 
   return NextResponse.json({ player_id: pid });

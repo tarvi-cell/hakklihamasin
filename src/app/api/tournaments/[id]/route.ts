@@ -8,6 +8,10 @@ export async function GET(
 ) {
   const { id } = await params;
 
+  if (!isValidUUID(id)) {
+    return NextResponse.json({ error: "Vigane ID" }, { status: 400 });
+  }
+
   const { data: tournament, error } = await supabase
     .from("golf_tournaments")
     .select("*")
@@ -15,13 +19,9 @@ export async function GET(
     .single();
 
   if (error || !tournament) {
-    return NextResponse.json(
-      { error: "Turniiri ei leitud" },
-      { status: 404 }
-    );
+    return NextResponse.json({ error: "Turniiri ei leitud" }, { status: 404 });
   }
 
-  // Fetch players
   const { data: tournamentPlayers } = await supabase
     .from("golf_tournament_players")
     .select(`
@@ -54,7 +54,7 @@ export async function GET(
   return NextResponse.json({ tournament, players });
 }
 
-// PATCH /api/tournaments/[id] — uuenda turniiri (status, settings jne)
+// PATCH /api/tournaments/[id] — uuenda turniiri (ainult lubatud väljad)
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -62,16 +62,43 @@ export async function PATCH(
   const { id } = await params;
   const body = await request.json();
 
+  if (!isValidUUID(id)) {
+    return NextResponse.json({ error: "Vigane ID" }, { status: 400 });
+  }
+
+  // Whitelist — ainult need väljad on lubatud
+  const ALLOWED_FIELDS = ["status", "name", "use_flights", "settings"];
+  const safeUpdate: Record<string, unknown> = {};
+  for (const key of ALLOWED_FIELDS) {
+    if (key in body) {
+      safeUpdate[key] = body[key];
+    }
+  }
+
+  if (Object.keys(safeUpdate).length === 0) {
+    return NextResponse.json({ error: "Midagi pole uuendada" }, { status: 400 });
+  }
+
+  // Valideeri status
+  if (safeUpdate.status && !["setup", "active", "completed"].includes(safeUpdate.status as string)) {
+    return NextResponse.json({ error: "Vigane staatus" }, { status: 400 });
+  }
+
   const { data, error } = await supabase
     .from("golf_tournaments")
-    .update(body)
+    .update(safeUpdate)
     .eq("id", id)
     .select()
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Tournament update error:", error.message);
+    return NextResponse.json({ error: "Uuendamine ebaõnnestus" }, { status: 500 });
   }
 
   return NextResponse.json({ tournament: data });
+}
+
+function isValidUUID(str: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 }

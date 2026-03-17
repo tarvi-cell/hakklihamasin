@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
       .order("joined_at", { ascending: false });
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: "Serveri viga" }, { status: 500 });
     }
 
     const tournaments = (data || [])

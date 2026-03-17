@@ -27,7 +27,7 @@ export async function GET(
   return NextResponse.json({ round, scores: scores || [] });
 }
 
-// PATCH /api/tournaments/[id]/rounds/[roundId] — uuenda ringi (status jne)
+// PATCH /api/tournaments/[id]/rounds/[roundId] — uuenda ringi (ainult lubatud väljad)
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; roundId: string }> }
@@ -35,15 +35,31 @@ export async function PATCH(
   const { roundId } = await params;
   const body = await request.json();
 
+  // Whitelist
+  const ALLOWED_FIELDS = ["status", "name", "settings"];
+  const safeUpdate: Record<string, unknown> = {};
+  for (const key of ALLOWED_FIELDS) {
+    if (key in body) safeUpdate[key] = body[key];
+  }
+
+  if (Object.keys(safeUpdate).length === 0) {
+    return NextResponse.json({ error: "Midagi pole uuendada" }, { status: 400 });
+  }
+
+  if (safeUpdate.status && !["setup", "active", "completed"].includes(safeUpdate.status as string)) {
+    return NextResponse.json({ error: "Vigane staatus" }, { status: 400 });
+  }
+
   const { data, error } = await supabase
     .from("golf_rounds")
-    .update(body)
+    .update(safeUpdate)
     .eq("id", roundId)
     .select()
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Round update error:", error.message);
+    return NextResponse.json({ error: "Uuendamine ebaõnnestus" }, { status: 500 });
   }
 
   return NextResponse.json({ round: data });

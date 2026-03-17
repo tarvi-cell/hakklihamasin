@@ -22,7 +22,7 @@ export async function GET(
   const { data, error } = await query;
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Serveri viga" }, { status: 500 });
   }
 
   return NextResponse.json({ scores: data || [] });
@@ -42,8 +42,12 @@ export async function POST(
   for (const entry of entries) {
     const { player_id, hole_number, strokes, entered_by, sync_id, round_id } = entry;
 
-    if (!player_id || !hole_number || !strokes) {
-      results.push({ error: "Puuduvad andmed", entry });
+    // Input validation
+    const holeNum = Number(hole_number);
+    const strokeNum = Number(strokes);
+    if (!player_id || !holeNum || !strokeNum ||
+        holeNum < 1 || holeNum > 18 || strokeNum < 1 || strokeNum > 20) {
+      results.push({ error: "Vigased andmed" });
       continue;
     }
 
@@ -98,7 +102,7 @@ export async function POST(
     }
 
     if (error) {
-      results.push({ error: error.message, entry });
+      results.push({ error: "Serveri viga" });
     } else {
       results.push({ ok: true, score: data });
     }
