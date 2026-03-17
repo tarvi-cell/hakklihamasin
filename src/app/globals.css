@@ -47,7 +47,6 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
 
-  /* Golf score colors */
   --color-eagle: var(--eagle);
   --color-birdie: var(--birdie);
   --color-par: var(--par);
@@ -59,102 +58,111 @@
   --color-cream: var(--cream);
 }
 
+/* ═══════════════════════════════════════════════
+   LIGHT THEME — "Augusta Morning"
+   Warm cream canvas, deep forest accents, gold highlights
+   ═══════════════════════════════════════════════ */
 :root {
-  /* Golf theme - Forest Green + Cream + Gold */
-  --background: oklch(0.97 0.005 90);
-  --foreground: oklch(0.18 0.04 155);
-  --card: oklch(0.995 0.002 90);
-  --card-foreground: oklch(0.18 0.04 155);
-  --popover: oklch(0.995 0.002 90);
-  --popover-foreground: oklch(0.18 0.04 155);
-  --primary: oklch(0.30 0.07 155);
-  --primary-foreground: oklch(0.97 0.005 90);
-  --secondary: oklch(0.93 0.01 90);
-  --secondary-foreground: oklch(0.25 0.05 155);
-  --muted: oklch(0.93 0.008 90);
-  --muted-foreground: oklch(0.50 0.02 155);
-  --accent: oklch(0.75 0.12 85);
-  --accent-foreground: oklch(0.20 0.04 85);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.88 0.01 90);
-  --input: oklch(0.88 0.01 90);
-  --ring: oklch(0.40 0.08 155);
-  --radius: 0.75rem;
+  --background: oklch(0.965 0.006 85);
+  --foreground: oklch(0.15 0.04 155);
+  --card: oklch(0.99 0.003 85);
+  --card-foreground: oklch(0.15 0.04 155);
+  --popover: oklch(0.99 0.003 85);
+  --popover-foreground: oklch(0.15 0.04 155);
+  --primary: oklch(0.25 0.06 155);
+  --primary-foreground: oklch(0.96 0.01 85);
+  --secondary: oklch(0.94 0.012 85);
+  --secondary-foreground: oklch(0.25 0.04 155);
+  --muted: oklch(0.935 0.01 85);
+  --muted-foreground: oklch(0.45 0.02 155);
+  --accent: oklch(0.72 0.14 85);
+  --accent-foreground: oklch(0.18 0.04 85);
+  --destructive: oklch(0.55 0.24 27);
+  --border: oklch(0.90 0.012 85);
+  --input: oklch(0.92 0.01 85);
+  --ring: oklch(0.35 0.07 155);
+  --radius: 0.875rem;
 
-  /* Golf score colors */
-  --eagle: oklch(0.45 0.15 155);
-  --birdie: oklch(0.60 0.14 155);
-  --par: oklch(0.93 0.008 90);
-  --bogey: oklch(0.78 0.10 70);
-  --double-bogey: oklch(0.68 0.15 50);
-  --triple: oklch(0.58 0.22 30);
-  --gold: oklch(0.75 0.12 85);
-  --forest: oklch(0.30 0.07 155);
-  --cream: oklch(0.97 0.005 90);
+  /* Score spectrum — jewel tones */
+  --eagle: oklch(0.38 0.12 165);
+  --birdie: oklch(0.52 0.14 155);
+  --par: oklch(0.93 0.01 85);
+  --bogey: oklch(0.72 0.11 70);
+  --double-bogey: oklch(0.60 0.16 45);
+  --triple: oklch(0.50 0.20 28);
+  --gold: oklch(0.72 0.14 85);
+  --forest: oklch(0.25 0.06 155);
+  --cream: oklch(0.965 0.006 85);
 
-  /* Chart colors - golf themed */
-  --chart-1: oklch(0.60 0.14 155);
-  --chart-2: oklch(0.75 0.12 85);
-  --chart-3: oklch(0.50 0.10 155);
-  --chart-4: oklch(0.68 0.15 50);
-  --chart-5: oklch(0.45 0.08 155);
+  --chart-1: oklch(0.52 0.14 155);
+  --chart-2: oklch(0.72 0.14 85);
+  --chart-3: oklch(0.42 0.10 155);
+  --chart-4: oklch(0.60 0.16 45);
+  --chart-5: oklch(0.38 0.08 155);
 
-  --sidebar: oklch(0.22 0.05 155);
-  --sidebar-foreground: oklch(0.93 0.008 90);
-  --sidebar-primary: oklch(0.75 0.12 85);
-  --sidebar-primary-foreground: oklch(0.18 0.04 155);
-  --sidebar-accent: oklch(0.28 0.06 155);
-  --sidebar-accent-foreground: oklch(0.93 0.008 90);
-  --sidebar-border: oklch(0.30 0.05 155);
-  --sidebar-ring: oklch(0.75 0.12 85);
-}
-
-.dark {
-  --background: oklch(0.16 0.03 155);
-  --foreground: oklch(0.93 0.008 90);
-  --card: oklch(0.20 0.04 155);
-  --card-foreground: oklch(0.93 0.008 90);
-  --popover: oklch(0.20 0.04 155);
-  --popover-foreground: oklch(0.93 0.008 90);
-  --primary: oklch(0.75 0.12 85);
-  --primary-foreground: oklch(0.18 0.04 155);
-  --secondary: oklch(0.25 0.04 155);
-  --secondary-foreground: oklch(0.93 0.008 90);
-  --muted: oklch(0.25 0.04 155);
-  --muted-foreground: oklch(0.65 0.03 155);
-  --accent: oklch(0.35 0.06 155);
-  --accent-foreground: oklch(0.93 0.008 90);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(0.30 0.04 155);
-  --input: oklch(0.30 0.04 155);
-  --ring: oklch(0.75 0.12 85);
-
-  --eagle: oklch(0.55 0.15 155);
-  --birdie: oklch(0.65 0.14 155);
-  --par: oklch(0.30 0.04 155);
-  --bogey: oklch(0.55 0.10 70);
-  --double-bogey: oklch(0.50 0.15 50);
-  --triple: oklch(0.50 0.22 30);
-  --gold: oklch(0.75 0.12 85);
-  --forest: oklch(0.40 0.08 155);
-  --cream: oklch(0.93 0.008 90);
-
-  --chart-1: oklch(0.65 0.14 155);
-  --chart-2: oklch(0.75 0.12 85);
-  --chart-3: oklch(0.55 0.10 155);
-  --chart-4: oklch(0.55 0.15 50);
-  --chart-5: oklch(0.50 0.08 155);
-
-  --sidebar: oklch(0.18 0.03 155);
-  --sidebar-foreground: oklch(0.93 0.008 90);
-  --sidebar-primary: oklch(0.75 0.12 85);
-  --sidebar-primary-foreground: oklch(0.18 0.04 155);
-  --sidebar-accent: oklch(0.25 0.04 155);
-  --sidebar-accent-foreground: oklch(0.93 0.008 90);
+  --sidebar: oklch(0.18 0.05 155);
+  --sidebar-foreground: oklch(0.93 0.01 85);
+  --sidebar-primary: oklch(0.72 0.14 85);
+  --sidebar-primary-foreground: oklch(0.15 0.04 155);
+  --sidebar-accent: oklch(0.24 0.05 155);
+  --sidebar-accent-foreground: oklch(0.93 0.01 85);
   --sidebar-border: oklch(0.28 0.04 155);
-  --sidebar-ring: oklch(0.75 0.12 85);
+  --sidebar-ring: oklch(0.72 0.14 85);
 }
 
+/* ═══════════════════════════════════════════════
+   DARK THEME — "Augusta Twilight"
+   Deep forest atmosphere, warm ember glow
+   ═══════════════════════════════════════════════ */
+.dark {
+  --background: oklch(0.13 0.025 155);
+  --foreground: oklch(0.92 0.01 85);
+  --card: oklch(0.17 0.03 155);
+  --card-foreground: oklch(0.92 0.01 85);
+  --popover: oklch(0.17 0.03 155);
+  --popover-foreground: oklch(0.92 0.01 85);
+  --primary: oklch(0.72 0.14 85);
+  --primary-foreground: oklch(0.13 0.04 155);
+  --secondary: oklch(0.20 0.035 155);
+  --secondary-foreground: oklch(0.92 0.01 85);
+  --muted: oklch(0.22 0.03 155);
+  --muted-foreground: oklch(0.60 0.025 155);
+  --accent: oklch(0.30 0.05 155);
+  --accent-foreground: oklch(0.92 0.01 85);
+  --destructive: oklch(0.65 0.20 25);
+  --border: oklch(0.25 0.03 155);
+  --input: oklch(0.25 0.03 155);
+  --ring: oklch(0.72 0.14 85);
+
+  --eagle: oklch(0.50 0.14 165);
+  --birdie: oklch(0.58 0.14 155);
+  --par: oklch(0.25 0.03 155);
+  --bogey: oklch(0.50 0.10 70);
+  --double-bogey: oklch(0.45 0.14 45);
+  --triple: oklch(0.45 0.20 28);
+  --gold: oklch(0.72 0.14 85);
+  --forest: oklch(0.35 0.06 155);
+  --cream: oklch(0.92 0.01 85);
+
+  --chart-1: oklch(0.58 0.14 155);
+  --chart-2: oklch(0.72 0.14 85);
+  --chart-3: oklch(0.48 0.10 155);
+  --chart-4: oklch(0.50 0.14 45);
+  --chart-5: oklch(0.42 0.08 155);
+
+  --sidebar: oklch(0.15 0.025 155);
+  --sidebar-foreground: oklch(0.92 0.01 85);
+  --sidebar-primary: oklch(0.72 0.14 85);
+  --sidebar-primary-foreground: oklch(0.15 0.04 155);
+  --sidebar-accent: oklch(0.22 0.035 155);
+  --sidebar-accent-foreground: oklch(0.92 0.01 85);
+  --sidebar-border: oklch(0.25 0.03 155);
+  --sidebar-ring: oklch(0.72 0.14 85);
+}
+
+/* ═══════════════════════════════════════════════
+   BASE LAYER
+   ═══════════════════════════════════════════════ */
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -163,16 +171,140 @@
     @apply bg-background text-foreground;
     -webkit-tap-highlight-color: transparent;
     -webkit-touch-callout: none;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
   html {
     @apply font-sans;
     scroll-behavior: smooth;
-    /* Prevent overscroll bounce on iOS */
     overscroll-behavior: none;
   }
 }
 
-/* Safe area padding for notch/home indicator */
+/* ═══════════════════════════════════════════════
+   PREMIUM HERO — Atmospheric gradient background
+   ═══════════════════════════════════════════════ */
+.hero-gradient {
+  background: linear-gradient(
+    165deg,
+    oklch(0.18 0.06 155) 0%,
+    oklch(0.22 0.07 155) 35%,
+    oklch(0.16 0.05 155) 65%,
+    oklch(0.12 0.04 160) 100%
+  );
+  position: relative;
+  overflow: hidden;
+}
+.hero-gradient::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 20% 10%, oklch(0.72 0.14 85 / 0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 80% at 85% 90%, oklch(0.30 0.08 155 / 0.20) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, oklch(1 0 0 / 0.02) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero-gradient::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  background-size: 128px 128px;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+}
+
+/* ═══════════════════════════════════════════════
+   GLASS CARD — Frosted glass effect
+   ═══════════════════════════════════════════════ */
+.glass-card {
+  background: oklch(1 0 0 / 0.06);
+  backdrop-filter: blur(12px) saturate(1.5);
+  -webkit-backdrop-filter: blur(12px) saturate(1.5);
+  border: 1px solid oklch(1 0 0 / 0.10);
+  border-radius: 1rem;
+}
+.dark .glass-card {
+  background: oklch(1 0 0 / 0.04);
+  border-color: oklch(1 0 0 / 0.08);
+}
+
+/* On hero (light text on dark bg) */
+.hero-gradient .glass-card {
+  background: oklch(1 0 0 / 0.08);
+  border-color: oklch(1 0 0 / 0.12);
+}
+
+/* ═══════════════════════════════════════════════
+   PREMIUM CARD — Elevated surface with subtle glow
+   ═══════════════════════════════════════════════ */
+.premium-card {
+  @apply bg-card rounded-2xl;
+  border: 1px solid oklch(0 0 0 / 0.06);
+  box-shadow:
+    0 1px 2px oklch(0 0 0 / 0.04),
+    0 4px 12px oklch(0 0 0 / 0.03),
+    0 0 0 1px oklch(0 0 0 / 0.02);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.premium-card:active {
+  transform: scale(0.98);
+  box-shadow:
+    0 1px 2px oklch(0 0 0 / 0.06),
+    0 2px 6px oklch(0 0 0 / 0.04);
+}
+.dark .premium-card {
+  border-color: oklch(1 0 0 / 0.06);
+  box-shadow:
+    0 1px 2px oklch(0 0 0 / 0.20),
+    0 4px 16px oklch(0 0 0 / 0.15),
+    inset 0 1px 0 oklch(1 0 0 / 0.04);
+}
+
+/* ═══════════════════════════════════════════════
+   SCORE BUTTONS — Rich, tactile, jewel-toned
+   ═══════════════════════════════════════════════ */
+.score-ace {
+  background: linear-gradient(145deg, oklch(0.82 0.16 85), oklch(0.70 0.18 70));
+  color: oklch(0.20 0.06 85);
+  font-weight: 800;
+  box-shadow: 0 2px 8px oklch(0.72 0.14 85 / 0.40);
+}
+.score-eagle {
+  background: linear-gradient(145deg, oklch(0.42 0.14 165), oklch(0.32 0.12 160));
+  color: white;
+  font-weight: 700;
+  box-shadow: 0 2px 8px oklch(0.38 0.12 165 / 0.35);
+}
+.score-birdie {
+  background: linear-gradient(145deg, oklch(0.56 0.14 155), oklch(0.46 0.13 155));
+  color: white;
+  font-weight: 600;
+  box-shadow: 0 2px 8px oklch(0.52 0.14 155 / 0.30);
+}
+.score-par {
+  @apply bg-muted text-foreground;
+  box-shadow: inset 0 1px 2px oklch(0 0 0 / 0.04);
+}
+.score-bogey {
+  background: linear-gradient(145deg, oklch(0.76 0.11 70), oklch(0.68 0.12 65));
+  color: white;
+  box-shadow: 0 2px 6px oklch(0.72 0.11 70 / 0.25);
+}
+.score-double {
+  background: linear-gradient(145deg, oklch(0.64 0.16 45), oklch(0.54 0.17 40));
+  color: white;
+  box-shadow: 0 2px 6px oklch(0.60 0.16 45 / 0.25);
+}
+.score-triple {
+  background: linear-gradient(145deg, oklch(0.54 0.20 28), oklch(0.44 0.21 25));
+  color: white;
+  box-shadow: 0 2px 6px oklch(0.50 0.20 28 / 0.30);
+}
+
+/* ═══════════════════════════════════════════════
+   SAFE AREAS & PWA
+   ═══════════════════════════════════════════════ */
 .safe-area-top {
   padding-top: env(safe-area-inset-top, 0px);
 }
@@ -180,36 +312,22 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 .safe-area-all {
-  padding: env(safe-area-inset-top, 0px)
-    env(safe-area-inset-right, 0px)
-    env(safe-area-inset-bottom, 0px)
-    env(safe-area-inset-left, 0px);
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+}
+@media (display-mode: standalone) {
+  .safe-area-top {
+    padding-top: max(env(safe-area-inset-top, 0px), 20px);
+  }
 }
 
-/* Score color utility classes */
-.score-ace {
-  @apply bg-amber-400 text-amber-950 font-bold;
-}
-.score-eagle {
-  @apply bg-eagle text-white font-bold;
-}
-.score-birdie {
-  @apply bg-birdie text-white;
-}
-.score-par {
-  @apply bg-par text-foreground;
-}
-.score-bogey {
-  @apply bg-bogey text-white;
-}
-.score-double {
-  @apply bg-double text-white;
-}
-.score-triple {
-  @apply bg-triple text-white;
+/* ═══════════════════════════════════════════════
+   INTERACTION POLISH
+   ═══════════════════════════════════════════════ */
+button, [role="button"] {
+  user-select: none;
+  -webkit-user-select: none;
 }
 
-/* Smooth touch scrolling */
 .touch-scroll {
   -webkit-overflow-scrolling: touch;
   scroll-snap-type: x mandatory;
@@ -218,15 +336,49 @@
   scroll-snap-align: center;
 }
 
-/* Prevent text selection on interactive elements */
-button, [role="button"] {
-  user-select: none;
-  -webkit-user-select: none;
+/* Pill button style */
+.pill-btn {
+  @apply inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all;
+  box-shadow: 0 1px 3px oklch(0 0 0 / 0.06);
+}
+.pill-btn:active {
+  transform: scale(0.95);
 }
 
-/* Standalone PWA status bar area */
-@media (display-mode: standalone) {
-  .safe-area-top {
-    padding-top: max(env(safe-area-inset-top, 0px), 20px);
-  }
+/* Shine effect for gold elements */
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.gold-shimmer {
+  background: linear-gradient(
+    110deg,
+    oklch(0.72 0.14 85) 0%,
+    oklch(0.82 0.16 80) 45%,
+    oklch(0.72 0.14 85) 55%,
+    oklch(0.72 0.14 85) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+/* Floating label style */
+.stat-value {
+  @apply text-2xl font-bold tracking-tight;
+  text-shadow: 0 1px 2px oklch(0 0 0 / 0.1);
+}
+
+/* Position badge (1st, 2nd, 3rd) */
+.position-gold {
+  background: linear-gradient(145deg, oklch(0.78 0.14 85), oklch(0.68 0.16 80));
+  color: oklch(0.20 0.06 85);
+  box-shadow: 0 2px 6px oklch(0.72 0.14 85 / 0.30);
+}
+.position-silver {
+  background: linear-gradient(145deg, oklch(0.78 0.01 0), oklch(0.68 0.01 0));
+  color: oklch(0.25 0 0);
+}
+.position-bronze {
+  background: linear-gradient(145deg, oklch(0.68 0.08 55), oklch(0.58 0.10 50));
+  color: white;
 }

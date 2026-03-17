@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
 import {
   getScoreName,
   getScoreEmoji,
@@ -41,27 +42,30 @@ export function ScoreButton({
       : "Triple+";
 
   return (
-    <button
+    <motion.button
+      whileTap={{ scale: 0.88 }}
       onClick={() => {
         onSelect(strokes);
-        // Haptic feedback
         if (navigator.vibrate) {
           navigator.vibrate(diff <= -1 ? [50, 30, 50] : 30);
         }
       }}
       className={cn(
-        "flex flex-col items-center justify-center rounded-2xl transition-all",
-        "min-h-[72px] min-w-[72px]",
-        "active:scale-90",
+        "relative flex flex-col items-center justify-center rounded-2xl transition-all overflow-hidden",
+        "min-h-[80px]",
         isSelected
-          ? `${colorClass} ring-2 ring-offset-2 ring-primary shadow-lg scale-105`
-          : "bg-muted/60 hover:bg-muted text-foreground"
+          ? `${colorClass} ring-2 ring-offset-2 ring-offset-background ring-gold scale-[1.05]`
+          : "bg-muted/70 text-foreground hover:bg-muted"
       )}
     >
-      <span className="text-2xl font-bold">{strokes}</span>
-      <span className="text-[10px] font-medium opacity-80">
+      {/* Subtle inner highlight when not selected */}
+      {!isSelected && (
+        <div className="absolute inset-0 bg-gradient-to-b from-white/[0.06] to-transparent pointer-events-none rounded-2xl" />
+      )}
+      <span className="text-[28px] font-extrabold leading-none">{strokes}</span>
+      <span className="text-[10px] font-semibold mt-0.5 opacity-80 tracking-wide">
         {emoji} {label}
       </span>
-    </button>
+    </motion.button>
   );
 }

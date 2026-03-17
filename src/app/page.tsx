@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Plus, LogIn, Trophy, Settings, Play, ChevronRight } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PlayerSetup } from "@/components/player/PlayerSetup";
 import { usePlayer } from "@/hooks/usePlayer";
@@ -25,7 +24,6 @@ export default function Home() {
   const [showSetup, setShowSetup] = useState(false);
   const [recentTournaments, setRecentTournaments] = useState<RecentTournament[]>([]);
 
-  // Load recent tournaments from Supabase
   useEffect(() => {
     if (!player.id) return;
     async function load() {
@@ -35,8 +33,7 @@ export default function Home() {
           const data = await res.json();
           setRecentTournaments(
             (data.tournaments || []).map((t: Record<string, unknown>) => ({
-              id: t.id as string,
-              name: t.name as string,
+              id: t.id as string, name: t.name as string,
               course_name: (t.course_name as string) || "Nimetamata",
               holes_count: (t.holes_count as number) || 18,
               status: (t.status as string) || "setup",
@@ -45,17 +42,13 @@ export default function Home() {
           );
         }
       } catch {
-        // Offline — try localStorage fallback
         const tournaments: RecentTournament[] = [];
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
           if (key?.startsWith("hakklihamasin-tournament-")) {
             try {
               const t = JSON.parse(localStorage.getItem(key)!);
-              tournaments.push({
-                id: t.id, name: t.name, course_name: t.course_name,
-                holes_count: t.holes_count, status: t.status, created_at: t.created_at,
-              });
+              tournaments.push({ id: t.id, name: t.name, course_name: t.course_name, holes_count: t.holes_count, status: t.status, created_at: t.created_at });
             } catch { /* ignore */ }
           }
         }
@@ -65,17 +58,18 @@ export default function Home() {
     load();
   }, [player.id]);
 
+  // Splash
   if (!isLoaded) {
     return (
-      <div className="min-h-dvh flex items-center justify-center bg-primary">
+      <div className="min-h-dvh flex items-center justify-center hero-gradient">
         <motion.div
           initial={{ scale: 0.5, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: "spring", duration: 0.6 }}
-          className="text-center"
+          transition={{ type: "spring", duration: 0.8 }}
+          className="text-center relative z-10"
         >
-          <div className="text-7xl mb-3">⛳</div>
-          <div className="text-primary-foreground/60 text-sm font-medium">
+          <div className="text-8xl mb-4">⛳</div>
+          <div className="text-cream/50 text-sm font-medium tracking-[0.3em] uppercase">
             Hakklihamasin
           </div>
         </motion.div>
@@ -83,34 +77,20 @@ export default function Home() {
     );
   }
 
+  // Setup
   if (!isSetUp || showSetup) {
     return (
       <div className="min-h-dvh flex flex-col bg-background">
-        {/* Green header bar */}
-        <div
-          className="bg-primary text-primary-foreground px-5 pt-3 pb-4 safe-area-top"
-          style={{
-            backgroundImage: `radial-gradient(ellipse at 30% 0%, rgba(218,165,32,0.15) 0%, transparent 60%)`,
-          }}
-        >
-          <h1 className="font-[family-name:var(--font-heading)] text-xl font-bold tracking-tight text-center">
+        <div className="hero-gradient text-cream px-5 pt-4 pb-5 safe-area-top">
+          <h1 className="font-[family-name:var(--font-heading)] text-xl font-bold tracking-tight text-center relative z-10">
             Hakklihamasin
           </h1>
         </div>
-
-        {/* Setup form — fills the screen */}
         <div className="flex-1 px-5 py-6 overflow-y-auto">
-          <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ duration: 0.4 }}
-          >
+          <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.4 }}>
             <PlayerSetup
               initialPlayer={player}
-              onComplete={(p: LocalPlayer) => {
-                savePlayer(p);
-                setShowSetup(false);
-              }}
+              onComplete={(p: LocalPlayer) => { savePlayer(p); setShowSetup(false); }}
             />
           </motion.div>
         </div>
@@ -118,51 +98,45 @@ export default function Home() {
     );
   }
 
+  const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } } as const;
+  const fadeUp = { hidden: { y: 20, opacity: 0 }, show: { y: 0, opacity: 1 } } as const;
+
   return (
     <div className="min-h-dvh flex flex-col bg-background">
-      {/* Header */}
-      <header className="relative overflow-hidden bg-primary text-primary-foreground safe-area-top">
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: `radial-gradient(ellipse at 30% 0%, rgba(218,165,32,0.15) 0%, transparent 60%),
-                              radial-gradient(ellipse at 90% 80%, rgba(255,255,255,0.06) 0%, transparent 50%)`,
-          }}
-        />
-        <div className="relative px-5 pt-10 pb-7">
-          <div className="flex items-center justify-between mb-5">
+      {/* Immersive Hero Header */}
+      <header className="hero-gradient text-cream safe-area-top">
+        <div className="relative z-10 px-5 pt-10 pb-8">
+          <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="font-[family-name:var(--font-heading)] text-3xl font-bold tracking-tight">
+              <h1 className="font-[family-name:var(--font-heading)] text-[28px] font-bold tracking-tight leading-none">
                 Hakklihamasin
               </h1>
-              <p className="text-primary-foreground/60 text-sm mt-0.5">
+              <p className="text-cream/40 text-[13px] mt-1 font-medium tracking-wide">
                 Golfiturniiri äpp
               </p>
             </div>
-            <button
+            <motion.button
+              whileTap={{ scale: 0.92 }}
               onClick={() => setShowSetup(true)}
-              className="flex items-center gap-2 pl-3 pr-4 py-2 rounded-2xl bg-white/10 hover:bg-white/15 active:bg-white/20 transition-colors"
+              className="flex items-center gap-2.5 pl-3 pr-4 py-2.5 rounded-2xl glass-card"
             >
-              <span className="text-2xl">{player.emoji}</span>
-              <span className="text-sm font-medium max-w-[80px] truncate">
+              <span className="text-2xl drop-shadow-sm">{player.emoji}</span>
+              <span className="text-sm font-semibold text-cream/90 max-w-[80px] truncate">
                 {player.name}
               </span>
-            </button>
+            </motion.button>
           </div>
 
-          {/* Quick stats */}
+          {/* Stats row */}
           <div className="flex gap-2.5">
             {[
               { value: recentTournaments.length, label: "Turniire" },
-              { value: "-", label: "Parim ring" },
+              { value: "—", label: "Parim ring" },
               { value: "0", label: "Birdie'd" },
             ].map((stat) => (
-              <div
-                key={stat.label}
-                className="flex-1 rounded-2xl bg-white/8 backdrop-blur-sm px-3 py-2.5 text-center"
-              >
-                <div className="text-xl font-bold">{stat.value}</div>
-                <div className="text-[10px] text-primary-foreground/60 font-medium uppercase tracking-wide">
+              <div key={stat.label} className="flex-1 glass-card px-3 py-3 text-center">
+                <div className="stat-value text-cream">{stat.value}</div>
+                <div className="text-[9px] text-cream/40 font-semibold uppercase tracking-[0.15em] mt-0.5">
                   {stat.label}
                 </div>
               </div>
@@ -171,154 +145,115 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Main content */}
-      <main className="flex-1 px-5 py-5 space-y-3">
-        {/* Action cards */}
-        <motion.div
-          initial={{ y: 15, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.05 }}
-        >
-          <Card
-            className="cursor-pointer border-2 border-dashed border-primary/30 hover:border-primary/50 shadow-sm hover:shadow-md transition-all active:scale-[0.98]"
+      {/* Main */}
+      <motion.main
+        variants={stagger}
+        initial="hidden"
+        animate="show"
+        className="flex-1 px-5 py-5 space-y-3"
+      >
+        {/* Primary CTA */}
+        <motion.div variants={fadeUp}>
+          <motion.button
+            whileTap={{ scale: 0.97 }}
             onClick={() => router.push("/create")}
+            className="w-full premium-card p-4 flex items-center gap-4 text-left border-2 border-dashed border-primary/25 cursor-pointer"
           >
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="flex items-center justify-center w-13 h-13 rounded-2xl bg-primary text-primary-foreground">
-                <Plus className="w-6 h-6" />
-              </div>
-              <div className="flex-1">
-                <h2 className="font-semibold text-[15px]">Loo turniir</h2>
-                <p className="text-muted-foreground text-[13px]">
-                  Seadista uus ring seltskonnale
-                </p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
-            </CardContent>
-          </Card>
+            <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-primary text-primary-foreground shadow-lg">
+              <Plus className="w-6 h-6" strokeWidth={2.5} />
+            </div>
+            <div className="flex-1">
+              <h2 className="font-bold text-[15px]">Loo turniir</h2>
+              <p className="text-muted-foreground text-[13px]">Seadista uus ring seltskonnale</p>
+            </div>
+            <ChevronRight className="w-5 h-5 text-muted-foreground/50" />
+          </motion.button>
         </motion.div>
 
-        <motion.div
-          initial={{ y: 15, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.1 }}
-        >
-          <Card
-            className="cursor-pointer shadow-sm hover:shadow-md transition-all active:scale-[0.98]"
+        <motion.div variants={fadeUp}>
+          <motion.button
+            whileTap={{ scale: 0.97 }}
             onClick={() => router.push("/join")}
+            className="w-full premium-card p-4 flex items-center gap-4 text-left cursor-pointer"
           >
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="flex items-center justify-center w-13 h-13 rounded-2xl bg-accent text-accent-foreground">
-                <LogIn className="w-6 h-6" />
-              </div>
-              <div className="flex-1">
-                <h2 className="font-semibold text-[15px]">Liitu turniiriga</h2>
-                <p className="text-muted-foreground text-[13px]">
-                  Sisesta 4-täheline kood
-                </p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
-            </CardContent>
-          </Card>
+            <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-gold/15 text-gold shadow-sm">
+              <LogIn className="w-6 h-6" />
+            </div>
+            <div className="flex-1">
+              <h2 className="font-bold text-[15px]">Liitu turniiriga</h2>
+              <p className="text-muted-foreground text-[13px]">Sisesta 4-täheline kood</p>
+            </div>
+            <ChevronRight className="w-5 h-5 text-muted-foreground/50" />
+          </motion.button>
         </motion.div>
 
-        <motion.div
-          initial={{ y: 15, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.15 }}
-        >
-          <Card
-            className="cursor-pointer shadow-sm hover:shadow-md transition-all active:scale-[0.98]"
+        <motion.div variants={fadeUp}>
+          <motion.button
+            whileTap={{ scale: 0.97 }}
             onClick={() => router.push("/formats")}
+            className="w-full premium-card p-4 flex items-center gap-4 text-left cursor-pointer"
           >
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="flex items-center justify-center w-13 h-13 rounded-2xl bg-secondary text-secondary-foreground">
-                <Trophy className="w-6 h-6" />
-              </div>
-              <div className="flex-1">
-                <h2 className="font-semibold text-[15px]">Mänguformaadid</h2>
-                <p className="text-muted-foreground text-[13px]">
-                  50+ formaati — leia oma lemmik
-                </p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
-            </CardContent>
-          </Card>
+            <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-birdie/12 text-birdie shadow-sm">
+              <Trophy className="w-6 h-6" />
+            </div>
+            <div className="flex-1">
+              <h2 className="font-bold text-[15px]">Mänguformaadid</h2>
+              <p className="text-muted-foreground text-[13px]">50+ formaati — leia oma lemmik</p>
+            </div>
+            <ChevronRight className="w-5 h-5 text-muted-foreground/50" />
+          </motion.button>
         </motion.div>
 
         {/* Recent tournaments */}
         {recentTournaments.length > 0 && (
-          <motion.div
-            initial={{ y: 15, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="pt-3"
-          >
-            <h3 className="font-[family-name:var(--font-heading)] text-lg font-semibold mb-3">
+          <motion.div variants={fadeUp} className="pt-2">
+            <h3 className="font-[family-name:var(--font-heading)] text-lg font-bold mb-3">
               Viimased turniirid
             </h3>
             <div className="space-y-2.5">
               {recentTournaments.slice(0, 5).map((t) => (
-                <Card
+                <motion.button
                   key={t.id}
-                  className="cursor-pointer hover:shadow-md transition-all active:scale-[0.98]"
+                  whileTap={{ scale: 0.97 }}
                   onClick={() => router.push(`/tournament/${t.id}`)}
+                  className="w-full premium-card p-4 flex items-center gap-3 text-left cursor-pointer"
                 >
-                  <CardContent className="flex items-center gap-3 p-4">
-                    <div className="flex items-center justify-center w-11 h-11 rounded-xl bg-primary/10 text-primary">
-                      <Play className="w-5 h-5" />
+                  <div className="flex items-center justify-center w-11 h-11 rounded-xl bg-forest/10 text-forest">
+                    <Play className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-bold text-sm truncate">{t.name}</h4>
+                      <Badge
+                        variant={t.status === "active" ? "default" : t.status === "completed" ? "secondary" : "outline"}
+                        className="text-[10px] shrink-0"
+                      >
+                        {t.status === "setup" ? "Seadistamine" : t.status === "active" ? "Käimas" : "Lõppenud"}
+                      </Badge>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-semibold text-sm truncate">
-                          {t.name}
-                        </h4>
-                        <Badge
-                          variant={
-                            t.status === "active"
-                              ? "default"
-                              : t.status === "completed"
-                              ? "secondary"
-                              : "outline"
-                          }
-                          className="text-[10px] shrink-0"
-                        >
-                          {t.status === "setup"
-                            ? "Seadistamine"
-                            : t.status === "active"
-                            ? "Käimas"
-                            : "Lõppenud"}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {t.course_name} — {t.holes_count} auku
-                      </p>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-                  </CardContent>
-                </Card>
+                    <p className="text-xs text-muted-foreground truncate mt-0.5">
+                      {t.course_name} — {t.holes_count} auku
+                    </p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground/40 shrink-0" />
+                </motion.button>
               ))}
             </div>
           </motion.div>
         )}
 
         {recentTournaments.length === 0 && (
-          <motion.div
-            initial={{ y: 15, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="text-center py-10 text-muted-foreground"
-          >
-            <div className="text-5xl mb-2">🏌️</div>
-            <p className="font-medium">Pole veel turniire</p>
-            <p className="text-sm">Loo esimene!</p>
+          <motion.div variants={fadeUp} className="text-center py-12 text-muted-foreground">
+            <div className="text-6xl mb-3 opacity-80">🏌️</div>
+            <p className="font-semibold text-foreground/80">Pole veel turniire</p>
+            <p className="text-sm mt-0.5">Loo esimene!</p>
           </motion.div>
         )}
-      </main>
+      </motion.main>
 
       {/* Footer */}
       <footer
-        className="px-4 py-3 text-center text-xs text-muted-foreground border-t"
+        className="px-4 py-3 text-center text-xs text-muted-foreground/60"
         style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 12px)" }}
       >
         <button
