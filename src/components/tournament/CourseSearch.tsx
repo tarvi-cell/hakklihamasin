@@ -64,17 +64,50 @@ export function CourseSearch({ onSelect }: CourseSearchProps) {
 
     const allResults: CourseOption[] = [];
 
-    // 1. Search Estonian hardcoded courses by name
-    const estonianMatches = ESTONIAN_COURSES.filter(
+    // 1. Search our own Supabase DB first (community courses)
+    try {
+      const dbRes = await fetch(`/api/courses?q=${encodeURIComponent(query)}`);
+      if (dbRes.ok) {
+        const dbData = await dbRes.json();
+        (dbData.courses || []).forEach((c: Record<string, unknown>) => {
+          allResults.push({
+            id: `db-${c.id}`,
+            name: c.name as string,
+            city: c.city as string | undefined,
+            country: c.country as string | undefined,
+            holesCount: (c.holes_count as number) as 9 | 18,
+            totalPar: c.total_par as number,
+            hasHoleData: Array.isArray(c.hole_pars) && (c.hole_pars as number[]).length > 0,
+            source: "api",
+            apiCourse: {
+              id: `db-${c.id}`,
+              name: c.name as string,
+              clubName: (c.club_name as string) || "",
+              city: c.city as string | undefined,
+              country: c.country as string | undefined,
+              holesCount: (c.holes_count as number) as 9 | 18,
+              totalPar: c.total_par as number,
+              holes: (c.hole_pars as number[]).map((par: number, i: number) => ({ number: i + 1, par })),
+              tees: [],
+              lat: c.lat as number | undefined,
+              lng: c.lng as number | undefined,
+            },
+          });
+        });
+      }
+    } catch { /* DB not available */ }
+
+    // 2. Search hardcoded courses (Estonia + Spain etc)
+    const hardcodedMatches = ESTONIAN_COURSES.filter(
       (c) =>
         c.name.toLowerCase().includes(query.toLowerCase()) ||
         c.city.toLowerCase().includes(query.toLowerCase())
     ).map(
       (c): CourseOption => ({
-        id: `ee-${c.name}`,
+        id: `hc-${c.name}`,
         name: c.name,
         city: c.city,
-        country: "Estonia",
+        country: undefined,
         holesCount: c.holesCount,
         totalPar: c.par,
         hasHoleData: c.holes.length > 0,
@@ -82,9 +115,14 @@ export function CourseSearch({ onSelect }: CourseSearchProps) {
         localCourse: c,
       })
     );
-    allResults.push(...estonianMatches);
+    // Add only if not already found in DB
+    hardcodedMatches.forEach((hc) => {
+      if (!allResults.some((r) => r.name.toLowerCase() === hc.name.toLowerCase())) {
+        allResults.push(hc);
+      }
+    });
 
-    // 2. Search GolfCourseAPI
+    // 3. Search GolfCourseAPI
     try {
       const res = await fetch(
         `/api/courses/search?q=${encodeURIComponent(query)}`
@@ -240,6 +278,52 @@ export function CourseSearch({ onSelect }: CourseSearchProps) {
       });
     } else if (course.osmCourse) {
       onSelect(course.osmCourse);
+    }
+
+    // Save course to our DB for future searches (fire and forget)
+    const selectedData = course.localCourse
+      ? {
+          name: course.localCourse.name,
+          city: course.localCourse.city,
+          lat: course.localCourse.lat,
+          lng: course.localCourse.lng,
+          holes_count: course.localCourse.holesCount,
+          total_par: course.localCourse.par,
+          hole_pars: course.localCourse.holes.map((h) => h.par),
+          source: "hardcoded",
+        }
+      : course.apiCourse
+      ? {
+          name: course.apiCourse.name,
+          club_name: course.apiCourse.clubName,
+          city: course.apiCourse.city,
+          country: course.apiCourse.country,
+          lat: course.apiCourse.lat,
+          lng: course.apiCourse.lng,
+          holes_count: course.apiCourse.holesCount,
+          total_par: course.apiCourse.totalPar,
+          hole_pars: course.apiCourse.holes.map((h) => h.par),
+          source: "golfcourseapi",
+        }
+      : course.osmCourse
+      ? {
+          name: course.osmCourse.name,
+          city: course.osmCourse.city,
+          lat: course.osmCourse.lat,
+          lng: course.osmCourse.lng,
+          holes_count: course.osmCourse.holesCount,
+          total_par: course.osmCourse.totalPar,
+          hole_pars: course.osmCourse.holes.map((h) => h.par),
+          source: "osm",
+        }
+      : null;
+
+    if (selectedData && selectedData.hole_pars.length > 0) {
+      fetch("/api/courses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(selectedData),
+      }).catch(() => {}); // silent fail
     }
 
     // Clear search
